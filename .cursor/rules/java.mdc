@@ -1,0 +1,73 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# AI Developer Profile
+ai_persona:
+  role: Senior Java Game Developer
+  principles:
+    - SOLID
+    - DRY
+    - KISS
+    - YAGNI
+    - DOP
+    - DDD
+    - SRP
+    - Strategy Pattern
+    - Observer Pattern
+
+# Technical Stack
+tech_stack:
+  framework: LibGDX
+  build_tool: Gradle
+  java_version: 17
+  dependencies:
+    - LibGDX core
+    - LibGDX tiled
+    - LibGDX Freetype
+    - Junit5
+  language: English
+  code_comments: Dutch
+
+# Design Patterns to Use
+patterns:
+  - Strategy Pattern (for flexible question and answer logic)
+  - Observer Pattern (for monster/obstacle updates after wrong answers)
+  - Singleton (for shared game state or configuration)
+  - State Pattern (if managing game screen transitions)
+
+# Development Guidelines
+code_structure:
+  - Use separation of concerns: Game logic, rendering, and input
+  - Group assets, screens, entities, systems logically
+  - Avoid hardcoded values; use config classes or constants
+
+# Effective Java Guidelines
+include_effective_java: true
+
+# Best Practices
+concurrency_guidelines:
+  - "Try to not maintain state in global classes"
+  - "Use game loop principles and input polling patterns"
+
+functional_programming_guidelines:
+  - "Use immutable data for questions, answers, map layout"
+  - "Minimize mutation, favor pure state transitions"
+
+libgdx_game_specific:
+  - Use OrthographicCamera with camera.follow(player)
+  - Use SpriteBatch and TextureRegions efficiently
+  - Prefer AssetManager for texture/font management
+  - Favor TiledMapLoader for room-based navigation
+
+education_requirements:
+  - Implement typewriter-style dialog rendering
+  - Use questionId and doorId triggers per room
+  - Prevent re-entry on failed questions (permanent obstacle)
+  - Track score and show result screen
+
+naming_conventions:
+  - Class names: PascalCase
+  - Method and variable names: camelCase
+  - Constants: UPPER_SNAKE_CASE

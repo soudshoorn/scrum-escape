@@ -1,0 +1,255 @@
+@startuml ScrumEscape Class Diagram
+
+' Main Game Classes
+class ScrumEscapeGame {
+    - AssetManager assetManager
+    - SpriteBatch batch
+    - Screen currentScreen
+    + create()
+    + render()
+    + dispose()
+}
+
+class GameScreen {
+    - OrthographicCamera camera
+    - Viewport viewport
+    - SpriteBatch batch
+    - Player player
+    - List<Monster> monsters
+    - List<Obstacle> obstacles
+    - List<Door> doors
+    - List<Question> questions
+    - TypewriterEffect typewriterEffect
+    + render()
+    + update()
+    + handleInput()
+    + onDoorOpened()
+}
+
+class EndScreen {
+    - SpriteBatch batch
+    - BitmapFont font
+    - int score
+    - TypewriterEffect typewriterEffect
+    + render()
+    + show()
+    + hide()
+}
+
+' Entity Classes
+class Player {
+    - Vector2 position
+    - Vector2 velocity
+    - TextureRegion currentFrame
+    - float stateTime
+    - Rectangle bounds
+    + update()
+    + render()
+    + move()
+    + checkCollision()
+}
+
+class Monster {
+    - Vector2 position
+    - Vector2 velocity
+    - TextureRegion texture
+    - Rectangle bounds
+    - boolean active
+    + update()
+    + render()
+    + move()
+    + checkCollision()
+    + onIncorrectAnswer()
+}
+
+class Obstacle {
+    - Vector2 position
+    - Rectangle bounds
+    - TextureRegion texture
+    + render()
+    + checkCollision()
+}
+
+class Door {
+    - Vector2 position
+    - Rectangle bounds
+    - TextureRegion texture
+    - boolean isLocked
+    - Question question
+    - DoorObserver observer
+    + render()
+    + checkCollision()
+    + unlock()
+    + open()
+    + setObserver()
+}
+
+class Question {
+    - String questionText
+    - List<String> answers
+    - int correctAnswerIndex
+    + checkAnswer()
+    + getQuestionText()
+    + getAnswers()
+}
+
+' Utility Classes
+class AssetManager {
+    - Map<String, Texture> textures
+    - Map<String, Sound> sounds
+    - Map<String, Music> music
+    + loadAssets()
+    + getTexture()
+    + getSound()
+    + getMusic()
+    + dispose()
+}
+
+class TypewriterEffect {
+    - String fullText
+    - String currentText
+    - float delay
+    - float timer
+    + update()
+    + getCurrentText()
+    + isComplete()
+    + reset()
+}
+
+' Design Pattern Interfaces
+interface Observer {
+    + onIncorrectAnswer()
+}
+
+interface DoorObserver {
+    + onDoorOpened()
+}
+
+interface QuestionStrategy {
+    + getQuestion()
+    + getOptions()
+    + isCorrectAnswer()
+    + getQuestionId()
+    + onCorrectAnswer()
+    + onWrongAnswer()
+    + checkAnswer()
+}
+
+' Design Pattern Implementations
+class MultipleChoiceStrategy {
+    - String questionId
+    - String question
+    - String[] options
+    - int correctOption
+    - String doorId
+    + getQuestion()
+    + getOptions()
+    + isCorrectAnswer()
+    + getQuestionId()
+    + onCorrectAnswer()
+    + onWrongAnswer()
+}
+
+class QuestionManager {
+    - Map<String, QuestionStrategy> questions
+    + getInstance()
+    + getQuestion()
+    + getFinalQuestion()
+}
+
+class GameState {
+    - int score
+    - Set<String> answeredQuestions
+    - Set<String> openedDoors
+    - Set<Integer> foundTIAObjects
+    - Set<String> failedQuestions
+    - Map<String, Integer> failedAttempts
+    + getInstance()
+    + addScore()
+    + markQuestionAnswered()
+    + markDoorOpened()
+    + isDoorOpened()
+    + getFailedAttempts()
+}
+
+' Relationships
+ScrumEscapeGame "1" *-- "1" AssetManager
+ScrumEscapeGame "1" *-- "*" Screen
+GameScreen "1" *-- "1" Player
+GameScreen "1" *-- "*" Monster
+GameScreen "1" *-- "*" Obstacle
+GameScreen "1" *-- "*" Door
+GameScreen "1" *-- "*" Question
+GameScreen "1" *-- "1" TypewriterEffect
+EndScreen "1" *-- "1" TypewriterEffect
+Door "1" *-- "1" Question
+
+' Design Pattern Relationships
+Observer <|.. Monster
+DoorObserver <|.. GameScreen
+QuestionStrategy <|.. MultipleChoiceStrategy
+QuestionManager "1" *-- "*" QuestionStrategy
+GameState "1" *-- "*" Question
+GameState "1" *-- "*" Door
+
+' Inheritance
+Game <|-- ScrumEscapeGame
+Screen <|-- GameScreen
+Screen <|-- EndScreen
+
+' Notes
+note right of ScrumEscapeGame
+  Hoofdklasse van het spel die
+  schermen en assets beheert
+end note
+
+note right of GameScreen
+  Beheert de hoofdspellogica,
+  rendering en input verwerking
+end note
+
+note right of Player
+  Speler karakter met
+  beweging en animatie
+end note
+
+note right of TypewriterEffect
+  Beheert de typewriter animatie
+  voor dialogen en tekst
+end note
+
+note right of Door
+  Deur met bijbehorende vraag
+  die ontgrendeld moet worden
+end note
+
+note right of Question
+  Vraag met meerdere antwoorden
+  waarvan er één correct is
+end note
+
+note right of Observer
+  Observer Pattern:
+  Monsters reageren op
+  foute antwoorden
+end note
+
+note right of DoorObserver
+  Observer Pattern:
+  GameScreen reageert op
+  geopende deuren
+end note
+
+note right of QuestionStrategy
+  Strategy Pattern:
+  Verschillende soorten
+  vragen implementeren
+end note
+
+note right of GameState
+  Singleton Pattern:
+  Centrale spelstatus
+  beheer
+end note
+
+@enduml 
