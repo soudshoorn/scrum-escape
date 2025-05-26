@@ -2,6 +2,7 @@ package nl.webser.scrum_escape.questions;
 
 import java.util.HashMap;
 import java.util.Map;
+
 import nl.webser.scrum_escape.GameState;
 
 /**
@@ -22,18 +23,29 @@ public class QuestionManager {
     // HashMap die alle vragen opslaat, met de vraag ID als sleutel
     private final Map<String, QuestionStrategy> questions;
 
-    // De finale vragen over TIA (Transparantie, Inspectie, Aanpassing)
+    // Moeilijkere en inhoudelijkere TIA vragen
     private static final String[] FINAL_QUESTIONS = {
-        "Wat betekent de T in TIA?",
-        "Wat betekent de I in TIA?",
-        "Wat betekent de A in TIA?"
+        "Waarom is transparantie essentieel voor effectieve samenwerking binnen Scrum?",
+        "Hoe draagt inspectie bij aan het tijdig bijsturen van een Scrum project?",
+        "Wat houdt het principe van aanpassing (adaptation) in binnen het Scrum framework?"
     };
 
-    // De antwoorden voor de finale vragen
+    // Complexere antwoordopties
     private static final String[][] FINAL_ANSWERS = {
-        {"Transparantie", "Transparant", "Transparantie", "Transparant"},
-        {"Inspectie", "Inspecteren", "Inspectie", "Inspecteren"},
-        {"Aanpassing", "Aanpassen", "Aanpassing", "Aanpassen"}
+        {"Omdat het team dan open is over werk en obstakels", 
+        "Omdat het team weet wat iedereen doet", 
+        "Omdat Scrum zonder transparantie niet werkt", 
+        "Omdat het de basis is voor vertrouwen en empirisme"},
+
+        {"Omdat het team dan wekelijks de backlog inspecteert", 
+        "Omdat inspectie tijdig problemen blootlegt", 
+        "Omdat stakeholders dan kunnen controleren", 
+        "Omdat het verplicht is in de sprint review"},
+
+        {"Het aanpassen van het plan bij nieuwe inzichten", 
+        "Het optimaliseren van code tijdens de sprint", 
+        "Het aanpassen van processen op basis van inspectieresultaten", 
+        "Het aanpassen van de teamstructuur"}
     };
 
     /**

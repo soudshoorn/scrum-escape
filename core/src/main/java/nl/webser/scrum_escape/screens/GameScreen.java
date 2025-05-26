@@ -1,35 +1,36 @@
 package nl.webser.scrum_escape.screens;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
-import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.maps.MapLayer;
 import com.badlogic.gdx.maps.MapObject;
 import com.badlogic.gdx.maps.MapObjects;
-import com.badlogic.gdx.maps.MapLayer;
 import com.badlogic.gdx.maps.objects.RectangleMapObject;
 import com.badlogic.gdx.maps.tiled.TiledMap;
 import com.badlogic.gdx.maps.tiled.renderers.OrthogonalTiledMapRenderer;
 import com.badlogic.gdx.math.Rectangle;
-import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 
 import nl.webser.scrum_escape.AssetManager;
 import nl.webser.scrum_escape.GameState;
 import nl.webser.scrum_escape.ScrumEscapeGame;
 import nl.webser.scrum_escape.entities.Door;
+import nl.webser.scrum_escape.entities.Monster;
 import nl.webser.scrum_escape.entities.Player;
 import nl.webser.scrum_escape.entities.TIAObject;
 import nl.webser.scrum_escape.observer.DoorObserver;
 import nl.webser.scrum_escape.questions.QuestionManager;
 import nl.webser.scrum_escape.questions.QuestionStrategy;
 import nl.webser.scrum_escape.ui.TypewriterEffect;
-
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * GameScreen is het hoofdscherm van het Scrum Escape spel.
@@ -117,6 +118,9 @@ public class GameScreen implements Screen, DoorObserver {
     private com.badlogic.gdx.audio.Sound wrongSound;
     private com.badlogic.gdx.audio.Sound welcomeSound;
     private com.badlogic.gdx.audio.Sound winnerSound;
+    private TIAObject activeTIAObject = null; // Houdt bij of speler op een TIA-object staat
+    private static final float MESSAGE_BOX_HEIGHT = 180f; // Vaste hoogte voor alle berichten
+    private Monster monster; // Monster instantie
 
     /**
      * Maakt een nieuw GameScreen aan.
@@ -174,6 +178,8 @@ public class GameScreen implements Screen, DoorObserver {
         shapeRenderer = new ShapeRenderer();
         monsterX = 0;
         monsterY = 0;
+        monster = new Monster(0, 0); // Startpositie linksboven
+        // Monster NIET activeren bij start
     }
 
     /**
@@ -262,6 +268,8 @@ public class GameScreen implements Screen, DoorObserver {
     @Override
     public void show() {
         gameState.reset();
+        monster.reset();
+        // Monster NIET activeren bij nieuw spel
     }
 
     /**
@@ -270,57 +278,31 @@ public class GameScreen implements Screen, DoorObserver {
      */
     @Override
     public void render(float delta) {
-        // Freeze speler als er een vraag open is
         player.setFrozen(showingQuestion || waitingForAnswer);
-        // Maak het scherm schoon
-        Gdx.gl.glClearColor(0, 0, 0, 1);
+        Gdx.gl.glClearColor(0.157f, 0.071f, 0.102f, 1f);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
-
-        // Update spel status
         update(delta);
-
-        // Update camera positie om de speler te volgen
         camera.position.set(
             player.getX() + player.getBounds().width / 2,
             player.getY() + player.getBounds().height / 2,
             0
         );
         camera.update();
-
-        // Update speler (voor animatie)
         player.update(delta);
-
-        // Begin met renderen
         batch.setProjectionMatrix(camera.combined);
         batch.begin();
-        
-        // Teken de spelkaart
         mapRenderer.setView(camera);
         mapRenderer.render();
-        
-        // Teken alle deuren
         for (Door door : doors) {
             door.render(batch);
         }
-        
-        // Teken alle TIA objecten
         for (TIAObject tiaObject : tiaObjects) {
             tiaObject.render(batch);
         }
-        
-        // Teken de speler
         player.render(batch);
-        
-        // Teken het monster als het actief is
-        if (gameState.isMonsterActive()) {
-            batch.setColor(1, 1, 1, gameState.getMonsterAlpha());
-            batch.draw(monsterTexture, monsterX, monsterY, MONSTER_SIZE, MONSTER_SIZE);
-            batch.setColor(1, 1, 1, 1);
-        }
-        
+        // Monster renderen
+        monster.render(batch);
         batch.end();
-        
-        // Teken de UI
         renderUI();
     }
 
@@ -329,15 +311,10 @@ public class GameScreen implements Screen, DoorObserver {
      * @param delta Tijd sinds de laatste update in seconden
      */
     private void update(float delta) {
-        // Update typewriter effect
         typewriterEffect.update(delta);
-        
-        // Update game timer
         if (!gameCompleted) {
             gameTimer += delta;
         }
-        
-        // Update completion timer
         if (gameCompleted) {
             completionTimer += delta;
             if (completionTimer >= COMPLETION_DELAY) {
@@ -347,16 +324,12 @@ public class GameScreen implements Screen, DoorObserver {
                 });
             }
         }
-        
-        // Update welkomsttekst timer
         if (hasMoved && showingWelcome) {
             welcomeTimer += delta;
             if (welcomeTimer >= WELCOME_DURATION) {
                 showingWelcome = false;
             }
         }
-        
-        // Update bericht timer
         if (currentMessage != null) {
             messageTimer -= delta;
             if (messageTimer <= 0) {
@@ -369,21 +342,27 @@ public class GameScreen implements Screen, DoorObserver {
                 }
             }
         }
-        // Update waarschuwing timer
         if (showingWarning) {
             warningTimer -= delta;
             if (warningTimer <= 0) {
                 showingWarning = false;
             }
         }
-        // Update monster alpha
-        gameState.updateMonsterAlpha(delta);
-        // Verwerk speler input altijd zodat antwoorden werken
+        // Monster alleen updaten als hij actief is
+        if (monster.isActive()) {
+            if (monster.update(delta, player)) {
+                ((ScrumEscapeGame) Gdx.app.getApplicationListener()).showGameOver();
+                monster.reset();
+            }
+        }
         handleInput();
-        // Controleer botsingen alleen als er geen vraag open is
         if (!showingQuestion && !waitingForAnswer) {
             checkDoorCollision();
             checkTIACollision();
+        } else {
+            if (activeTIAObject != null) {
+                activeTIAObject = null;
+            }
         }
     }
 
@@ -440,10 +419,7 @@ public class GameScreen implements Screen, DoorObserver {
             showMessage("Je moet eerst de huidige vraag afmaken!");
             return;
         }
-
         currentDoor = door;
-        
-        // Gebruik Strategy pattern voor verschillende vraag types
         if (door.getQuestionId().equals("finale")) {
             currentQuestion = QuestionManager.getFinalQuestion(finalQuestionIndex);
             showingFinalQuestion = true;
@@ -451,7 +427,6 @@ public class GameScreen implements Screen, DoorObserver {
             currentQuestion = questionManager.getQuestion(door.getQuestionId());
             showingFinalQuestion = false;
         }
-        
         if (currentQuestion == null) {
             if (showingFinalQuestion) {
                 showMessage("Gefeliciteerd! Je hebt alle vragen correct beantwoord!");
@@ -461,23 +436,11 @@ public class GameScreen implements Screen, DoorObserver {
             }
             return;
         }
-
-        // Update spel status
         showingQuestion = true;
         waitingForAnswer = true;
         gameState.setActiveQuestion(door.getQuestionId());
-        
-        // Start typewriter effect voor de vraag
         typewriterEffect.start(currentQuestion.getQuestion());
-        
-        // Positioneer monster boven de deur
-        monsterX = door.getX() + MONSTER_OFFSET;
-        monsterY = door.getY() + door.getBounds().height + 20;
-        
-        // Activeer monster als dit een herkansing is
-        if (gameState.getFailedAttempts(door.getQuestionId()) > 0) {
-            gameState.setMonsterActive(true);
-        }
+        // Monster niet resetten bij nieuwe vraag
     }
 
     /**
@@ -528,7 +491,8 @@ public class GameScreen implements Screen, DoorObserver {
         currentDoor.setOpen(true);
         gameState.markDoorOpened(currentDoor.getDoorId());
         gameState.clearActiveQuestion();
-        gameState.setMonsterActive(false);
+        // Monster stoppen bij goed antwoord
+        monster.reset();
         showingQuestion = false;
         waitingForAnswer = false;
         showMessage("Correct! De deur is nu open.");
@@ -542,11 +506,12 @@ public class GameScreen implements Screen, DoorObserver {
         wrongSound.play();
         gameState.markQuestionFailed(currentQuestion.getQuestionId());
         int failedAttempts = gameState.getFailedAttempts(currentQuestion.getQuestionId());
-        
         if (failedAttempts >= 2) {
             ((ScrumEscapeGame) Gdx.app.getApplicationListener()).showGameOver();
+            monster.reset();
         } else {
-            gameState.setMonsterActive(true);
+            // Monster activeren na fout antwoord
+            monster.activate(player);
             showingWarning = true;
             warningTimer = WARNING_DURATION;
             showMessage("Dat is niet correct! Het monster komt dichterbij...\nBeantwoord de vraag goed of het monster zal je te pakken krijgen!");
@@ -641,174 +606,85 @@ public class GameScreen implements Screen, DoorObserver {
     }
 
     /**
+     * Rendert een generiek bericht met consistente achtergrond en layout.
+     */
+    private void renderGenericMessage(String message) {
+        // Vervang harde regeleindes door spaties zodat alles netjes gewrapped wordt, maar behoud expliciete nieuwe regels met '|||'
+        String[] logicalLines = message.replace("\n", " ").split("\\|\\|\\|");
+        List<String> lines = new ArrayList<>();
+        for (String logicalLine : logicalLines) {
+            lines.addAll(wrapText(logicalLine.trim(), font, WINDOW_WIDTH - 2 * QUESTION_TEXT_X));
+        }
+        float totalTextHeight = lines.size() * QUESTION_LINE_SPACING;
+        float boxHeight = MESSAGE_BOX_HEIGHT;
+        float boxY = 0;
+        shapeRenderer.setProjectionMatrix(uiCamera.combined);
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        shapeRenderer.setColor(0, 0, 0, 0.85f);
+        shapeRenderer.rect(0, boxY, WINDOW_WIDTH, boxHeight);
+        shapeRenderer.end();
+        batch.begin();
+        float y = boxY + (boxHeight + totalTextHeight) / 2;
+        for (String line : lines) {
+            font.draw(batch, line, QUESTION_TEXT_X, y);
+            y -= QUESTION_LINE_SPACING;
+        }
+        batch.end();
+    }
+
+    /**
      * Rendert de UI elementen.
-     * Toont score, berichten en vragen.
+     * Toont score en alle berichten via één generieke renderer.
      */
     private void renderUI() {
         batch.setProjectionMatrix(uiCamera.combined);
         batch.begin();
-        // Render score linksboven zonder achtergrond
         font.draw(batch, "Score: " + gameState.getScore(), UI_PADDING, WINDOW_HEIGHT - UI_PADDING);
-        
-        // Render welkomsttekst als deze nog moet worden getoond
+        batch.end();
         if (showingWelcome) {
-            renderWelcomeMessage();
+            renderGenericMessage(typewriterEffect.getCurrentText());
+            return;
         }
-        
-        // Render bericht indien aanwezig
+        if (activeTIAObject != null) {
+            renderGenericMessage(formatTIAMessage(activeTIAObject.getTiaType()));
+            return;
+        }
         if (currentMessage != null) {
-            renderMessage();
+            renderGenericMessage(currentMessage);
+            return;
         }
-        // Render vraag indien aanwezig en geen waarschuwing
         if (showingQuestion && currentQuestion != null && !showingWarning) {
-            renderQuestion();
-        }
-        batch.end();
-    }
-
-    private void renderWelcomeMessage() {
-        // Calculate text height for background
-        List<String> lines = wrapText(typewriterEffect.getCurrentText(), font, WINDOW_WIDTH - 2 * QUESTION_TEXT_X);
-        float totalHeight = lines.size() * QUESTION_LINE_SPACING;
-        
-        // Draw black background - extend to bottom of screen
-        batch.end();
-        shapeRenderer.setProjectionMatrix(uiCamera.combined);
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-        shapeRenderer.setColor(0, 0, 0, 0.85f); // Zwarte, deels transparante achtergrond
-        shapeRenderer.rect(QUESTION_TEXT_X - 20, 0, WINDOW_WIDTH - 2 * (QUESTION_TEXT_X - 20), QUESTION_TEXT_Y + 20);
-        shapeRenderer.end();
-        batch.begin();
-        
-        // Draw text
-        float y = QUESTION_TEXT_Y;
-        for (String line : lines) {
-            font.draw(batch, line, QUESTION_TEXT_X, y);
-            y -= QUESTION_LINE_SPACING;
-        }
-    }
-
-    /**
-     * Rendert een bericht zonder achtergrond.
-     */
-    private void renderMessage() {
-        // Calculate text height for background
-        List<String> lines = wrapText(currentMessage, font, WINDOW_WIDTH - 2 * QUESTION_TEXT_X);
-        float totalHeight = lines.size() * QUESTION_LINE_SPACING;
-        
-        // Draw black background
-        batch.end();
-        shapeRenderer.setProjectionMatrix(uiCamera.combined);
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-        shapeRenderer.setColor(0, 0, 0, 0.85f); // Zwarte, deels transparante achtergrond
-        shapeRenderer.rect(QUESTION_TEXT_X - 20, QUESTION_TEXT_Y - totalHeight - 20, WINDOW_WIDTH - 2 * (QUESTION_TEXT_X - 20), totalHeight + 40);
-        shapeRenderer.end();
-        batch.begin();
-        
-        // Draw text
-        float y = QUESTION_TEXT_Y;
-        for (String line : lines) {
-            font.draw(batch, line, QUESTION_TEXT_X, y);
-            y -= QUESTION_LINE_SPACING;
-        }
-    }
-
-    /**
-     * Rendert een vraag met antwoordopties, alleen tekstueel en correct genummerd.
-     */
-    private void renderQuestion() {
-        // Zwarte achtergrond tekenen achter vraag en antwoorden
-        batch.end();
-        shapeRenderer.setProjectionMatrix(uiCamera.combined);
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-        shapeRenderer.setColor(0, 0, 0, 0.85f); // Zwarte, deels transparante achtergrond
-        shapeRenderer.rect(QUESTION_TEXT_X - 20, QUESTION_TEXT_Y - QUESTION_BOX_HEIGHT + 40, WINDOW_WIDTH - 2 * (QUESTION_TEXT_X - 20), QUESTION_BOX_HEIGHT);
-        shapeRenderer.end();
-        batch.begin();
-        
-        // Vraagtekst wrappen en tekenen
-        String questionText = currentQuestion.getQuestion();
-        String[] options = currentQuestion.getOptions();
-        float y = QUESTION_TEXT_Y + 20; // Start 50 pixels lower
-        List<String> wrappedQuestion = wrapText(questionText, font, WINDOW_WIDTH - 2 * QUESTION_TEXT_X);
-        for (String line : wrappedQuestion) {
-            font.draw(batch, line, QUESTION_TEXT_X, y);
-            y -= QUESTION_LINE_SPACING;
-        }
-        
-        // Extra ruimte tussen vraag en antwoorden
-        y -= QUESTION_LINE_SPACING * 1.5;
-        
-        // Antwoorden netjes onder elkaar tekenen, met wrapping per antwoord
-        for (int i = 0; i < options.length; i++) {
-            String optionText = (i + 1) + ") " + options[i];
-            List<String> wrappedOption = wrapText(optionText, font, WINDOW_WIDTH - 2 * QUESTION_TEXT_X);
-            for (String line : wrappedOption) {
-                font.draw(batch, line, QUESTION_TEXT_X, y);
-                y -= QUESTION_LINE_SPACING;
+            StringBuilder vraag = new StringBuilder();
+            vraag.append(currentQuestion.getQuestion()).append("|||\n|||"); // extra lege regel
+            String[] options = currentQuestion.getOptions();
+            for (int i = 0; i < options.length; i++) {
+                vraag.append((i + 1)).append(") ").append(options[i]).append("|||");
             }
+            renderGenericMessage(vraag.toString());
         }
-    }
-
-    /**
-     * Helper functie om tekst te wrappen op basis van pixel breedte.
-     * @param text De tekst om te wrappen
-     * @param font Het lettertype om te gebruiken
-     * @param maxWidth Maximale breedte in pixels
-     * @return Lijst met tekstregels
-     */
-    private List<String> wrapText(String text, BitmapFont font, float maxWidth) {
-        List<String> lines = new ArrayList<>();
-        String[] words = text.split(" ");
-        StringBuilder currentLine = new StringBuilder();
-        
-        for (String word : words) {
-            String testLine = currentLine.toString() + (currentLine.length() > 0 ? " " : "") + word;
-            GlyphLayout layout = new GlyphLayout(font, testLine);
-            
-            if (layout.width > maxWidth) {
-                if (currentLine.length() > 0) {
-                    lines.add(currentLine.toString());
-                    currentLine = new StringBuilder(word);
-                } else {
-                    lines.add(word);
-                    currentLine = new StringBuilder();
-                }
-            } else {
-                if (currentLine.length() > 0) {
-                    currentLine.append(" ");
-                }
-                currentLine.append(word);
-            }
-        }
-        
-        if (currentLine.length() > 0) {
-            lines.add(currentLine.toString());
-        }
-        
-        return lines;
     }
 
     /**
      * Controleert of de speler met een TIA object botst.
+     * Toont bericht zolang speler op het object staat, verwijdert als speler eraf gaat.
      */
     private void checkTIACollision() {
+        boolean found = false;
         for (TIAObject tiaObject : tiaObjects) {
-            if (!tiaObject.isFound() && player.getBounds().overlaps(tiaObject.getBounds())) {
-                handleTIACollision(tiaObject);
+            if (player.getBounds().overlaps(tiaObject.getBounds())) {
+                if (!tiaObject.isFound()) {
+                    tiaObject.setFound(true);
+                    gameState.addFoundTIAObject(tiaObject.getTiaType());
+                }
+                activeTIAObject = tiaObject;
+                found = true;
                 break;
             }
         }
-    }
-
-    /**
-     * Handelt de interactie met een TIA object af.
-     * @param tiaObject Het TIA object waar de speler mee interacteert
-     */
-    private void handleTIACollision(TIAObject tiaObject) {
-        tiaObject.setFound(true);
-        gameState.addFoundTIAObject(tiaObject.getTiaType());
-        showMessage(formatTIAMessage("Je hebt een TIA object gevonden!", tiaObject.getTiaType()));
+        if (!found && activeTIAObject != null) {
+            // Speler is van het object af
+            activeTIAObject = null;
+        }
     }
 
     /**
@@ -817,17 +693,30 @@ public class GameScreen implements Screen, DoorObserver {
      * @param tiaType Het type TIA object (1=T, 2=I, 3=A)
      * @return Het geformatteerde bericht
      */
-    private String formatTIAMessage(String message, int tiaType) {
+    private String formatTIAMessage(int tiaType) {
         String tiaName;
+        String explanation;
         switch (tiaType) {
-            case 1: tiaName = "Transparantie"; break;
-            case 2: tiaName = "Inspectie"; break;
-            case 3: tiaName = "Aanpassing"; break;
-            default: tiaName = "Onbekend";
+            case 1:
+                tiaName = "Transparantie";
+                explanation = "Transparantie betekent dat iedereen dezelfde waarheid ziet. In Scrum is dit cruciaal zodat beslissingen worden genomen op basis van gedeelde informatie. Denk aan zichtbare burndown charts, duidelijke Definition of Done, en open communicatie.";
+                break;
+            case 2:
+                tiaName = "Inspectie";
+                explanation = "Inspectie houdt in dat het team regelmatig het werk en het proces beoordeelt. Hierdoor kunnen ze op tijd afwijkingen ontdekken. Inspectie gebeurt bijvoorbeeld tijdens de Daily Scrum, Sprint Review en Retrospective.";
+                break;
+            case 3:
+                tiaName = "Aanpassing";
+                explanation = "Aanpassing betekent dat het team bereid is koers te wijzigen op basis van wat uit inspectie blijkt. Scrum-teams passen hun aanpak aan om beter te presteren. Dit kan een procesaanpassing zijn, een nieuwe manier van samenwerken, of een technische verandering.";
+                break;
+            default:
+                tiaName = "Onbekend";
+                explanation = "";
         }
-        return message + "\n\nJe hebt " + tiaName + " gevonden!";
-    }
 
+        return "Je hebt het " + tiaName + " TIA object gevonden!" + "\n" + explanation;
+    }
+    
     /**
      * Wordt aangeroepen wanneer een deur wordt geopend.
      * @param doorId De ID van de geopende deur
@@ -890,5 +779,41 @@ public class GameScreen implements Screen, DoorObserver {
         wrongSound.dispose();
         welcomeSound.dispose();
         winnerSound.dispose();
+        monster.dispose();
+    }
+
+    /**
+     * Helper functie om tekst te wrappen op basis van pixel breedte.
+     * @param text De tekst om te wrappen
+     * @param font Het lettertype om te gebruiken
+     * @param maxWidth Maximale breedte in pixels
+     * @return Lijst met tekstregels
+     */
+    private List<String> wrapText(String text, BitmapFont font, float maxWidth) {
+        List<String> lines = new ArrayList<>();
+        String[] words = text.split(" ");
+        StringBuilder currentLine = new StringBuilder();
+        for (String word : words) {
+            String testLine = currentLine.toString() + (currentLine.length() > 0 ? " " : "") + word;
+            GlyphLayout layout = new GlyphLayout(font, testLine);
+            if (layout.width > maxWidth) {
+                if (currentLine.length() > 0) {
+                    lines.add(currentLine.toString());
+                    currentLine = new StringBuilder(word);
+                } else {
+                    lines.add(word);
+                    currentLine = new StringBuilder();
+                }
+            } else {
+                if (currentLine.length() > 0) {
+                    currentLine.append(" ");
+                }
+                currentLine.append(word);
+            }
+        }
+        if (currentLine.length() > 0) {
+            lines.add(currentLine.toString());
+        }
+        return lines;
     }
 }
