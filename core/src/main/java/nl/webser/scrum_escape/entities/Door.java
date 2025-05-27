@@ -33,10 +33,10 @@ public class Door {
      * @param openTexture Texture voor de open deur
      */
     public Door(String doorId, String questionId, float x, float y, float width, float height,
-                TextureRegion closedTexture, TextureRegion openTexture) {
+        TextureRegion closedTexture, TextureRegion openTexture) {
         this.doorId = doorId;
         this.questionId = questionId;
-        this.bounds = new Rectangle(x, y, width, height);
+        this.bounds = new Rectangle(x, y, width, height); // Hitbox for the door
         this.closedTexture = closedTexture;
         this.openTexture = openTexture;
         this.isOpen = GameState.getInstance().isDoorOpened(doorId);

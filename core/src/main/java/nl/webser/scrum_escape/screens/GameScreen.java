@@ -32,6 +32,10 @@ import nl.webser.scrum_escape.questions.QuestionManager;
 import nl.webser.scrum_escape.questions.QuestionStrategy;
 import nl.webser.scrum_escape.ui.TypewriterEffect;
 
+
+import nl.webser.scrum_escape.hints.HintFactory;
+import nl.webser.scrum_escape.hints.HintProvider;
+
 /**
  * GameScreen is het hoofdscherm van het Scrum Escape spel.
  * Deze klasse is verantwoordelijk voor:
@@ -121,6 +125,15 @@ public class GameScreen implements Screen, DoorObserver {
     private TIAObject activeTIAObject = null; // Houdt bij of speler op een TIA-object staat
     private static final float MESSAGE_BOX_HEIGHT = 180f; // Vaste hoogte voor alle berichten
     private Monster monster; // Monster instantie
+
+    //hints
+    private String currentHint;
+    private boolean canShowHint = false;
+    
+    private boolean debugMode = true;
+
+
+
 
     /**
      * Maakt een nieuw GameScreen aan.
@@ -303,7 +316,28 @@ public class GameScreen implements Screen, DoorObserver {
         // Monster renderen
         monster.render(batch);
         batch.end();
+
+        if (debugMode) {
+            shapeRenderer.setProjectionMatrix(camera.combined);
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
+            shapeRenderer.setColor(1, 0, 0, 1); // Red for hitboxes
+        
+            // Draw player hitbox
+            Rectangle playerBounds = player.getBounds();
+            shapeRenderer.rect(playerBounds.x, playerBounds.y, playerBounds.width, playerBounds.height);
+        
+            // Draw door hitboxes
+            for (Door door : doors) {
+                Rectangle doorBounds = door.getBounds();
+                shapeRenderer.rect(doorBounds.x, doorBounds.y, doorBounds.width, doorBounds.height);
+            }
+        
+            shapeRenderer.end();
+        }
+    
+
         renderUI();
+
     }
 
     /**
@@ -371,27 +405,30 @@ public class GameScreen implements Screen, DoorObserver {
      * Als dat zo is, wordt de interactie afgehandeld.
      */
     private void checkDoorCollision() {
+    
         for (Door door : doors) {
-            if (!door.isOpen() && player.getBounds().overlaps(door.getBounds())) {
-                // Reset speler positie om door botsing te voorkomen
-                player.setPosition(prevPlayerX, prevPlayerY);
-                
-                // Controleer of de speler toegang heeft tot deze deur
-                if (!gameState.canAccessDoor(door.getDoorId())) {
-                    showMessage("Je moet eerst alle andere kamers hebben open gespeeld voordat je deze kamer kunt betreden!");
-                    return;
+            if (player.getBounds().overlaps(door.getBounds())) {
+    
+                // If the door is open, allow the player to pass through
+                if (door.isOpen()) {
+                    continue;
                 }
-                
-                // Controleer of dit de laatst gefaalde vraag was
-                if (door.getQuestionId().equals(lastFailedQuestionId)) {
-                    showMessage("Je moet eerst een andere kamer proberen voordat je deze opnieuw kunt proberen!");
-                    return;
+    
+                // Check if the door is the final door
+                if (door.getQuestionId().equals("finale")) {
+                    if (!gameState.hasFoundAllTIAObjects()) {
+                        showMessage("Je hebt nog niet alle TIA items gevonden!");
+                        player.setPosition(prevPlayerX, (float) 301.98334);
+                        return; 
+                    }
                 }
-                
+    
+    
                 handleDoorInteraction(door);
-                break;
+                return; 
             }
         }
+    
     }
 
     /**
@@ -491,10 +528,10 @@ public class GameScreen implements Screen, DoorObserver {
         currentDoor.setOpen(true);
         gameState.markDoorOpened(currentDoor.getDoorId());
         gameState.clearActiveQuestion();
-        // Monster stoppen bij goed antwoord
         monster.reset();
         showingQuestion = false;
         waitingForAnswer = false;
+        currentHint = null; // Reset de hint
         showMessage("Correct! De deur is nu open.");
     }
 
@@ -510,13 +547,20 @@ public class GameScreen implements Screen, DoorObserver {
             ((ScrumEscapeGame) Gdx.app.getApplicationListener()).showGameOver();
             monster.reset();
         } else {
-            // Monster activeren na fout antwoord
             monster.activate(player);
             showingWarning = true;
             warningTimer = WARNING_DURATION;
-            showMessage("Dat is niet correct! Het monster komt dichterbij...\nBeantwoord de vraag goed of het monster zal je te pakken krijgen!");
+            showMessage("Dat is niet correct! Het monster komt dichterbij...\nBeantwoord de vraag goed of het monster zal je te pakken krijgen!\nDruk op 'H' voor een hint.");
             waitingForAnswer = true;
+            canShowHint = true; // Hint kan nu worden getoond
         }
+        currentHint = null; // Reset de hint bij een fout antwoord
+    }
+        // Methode om hints te tonen
+    private void showHint() {
+        HintProvider hintProvider = HintFactory.createHintProvider();
+        currentHint = hintProvider.getHint();
+        System.out.println("Hint: " + currentHint); // Voor debugging
     }
 
     /**
@@ -567,8 +611,8 @@ public class GameScreen implements Screen, DoorObserver {
         // Bewaar huidige positie voor botsingsdetectie
         prevPlayerX = player.getX();
         prevPlayerY = player.getY();
-        
-        // Verwerk beweging
+    
+        // Process movement
         if (Gdx.input.isKeyPressed(Input.Keys.LEFT)) {
             player.moveLeft();
             hasMoved = true;
@@ -593,6 +637,17 @@ public class GameScreen implements Screen, DoorObserver {
             if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_3)) handleAnswer(2);
             if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_4)) handleAnswer(3);
         }
+
+        if (Gdx.input.isKeyJustPressed(Input.Keys.D)) {
+            debugMode = !debugMode;
+        }
+
+        
+    // Verwerk hint aanvraag
+    if (canShowHint && Gdx.input.isKeyJustPressed(Input.Keys.H)) {
+        showHint(); // Toon een hint
+        canShowHint = false; // Hint is bekeken, reset de mogelijkheid
+    }
     }
 
     /**
@@ -612,6 +667,12 @@ public class GameScreen implements Screen, DoorObserver {
         // Vervang harde regeleindes door spaties zodat alles netjes gewrapped wordt, maar behoud expliciete nieuwe regels met '|||'
         String[] logicalLines = message.replace("\n", " ").split("\\|\\|\\|");
         List<String> lines = new ArrayList<>();
+       
+        if (currentHint != null) {
+            lines.add("Hint: " + currentHint);
+            lines.add("");
+        }
+
         for (String logicalLine : logicalLines) {
             lines.addAll(wrapText(logicalLine.trim(), font, WINDOW_WIDTH - 2 * QUESTION_TEXT_X));
         }
