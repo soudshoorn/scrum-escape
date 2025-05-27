@@ -129,6 +129,8 @@ public class GameScreen implements Screen, DoorObserver {
     //hints
     private String currentHint;
     private boolean canShowHint = false;
+    
+    private boolean debugMode = true;
 
 
 
@@ -314,6 +316,26 @@ public class GameScreen implements Screen, DoorObserver {
         // Monster renderen
         monster.render(batch);
         batch.end();
+
+        if (debugMode) {
+            shapeRenderer.setProjectionMatrix(camera.combined);
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
+            shapeRenderer.setColor(1, 0, 0, 1); // Red for hitboxes
+        
+            // Draw player hitbox
+            Rectangle playerBounds = player.getBounds();
+            shapeRenderer.rect(playerBounds.x, playerBounds.y, playerBounds.width, playerBounds.height);
+        
+            // Draw door hitboxes
+            for (Door door : doors) {
+                Rectangle doorBounds = door.getBounds();
+                shapeRenderer.rect(doorBounds.x, doorBounds.y, doorBounds.width, doorBounds.height);
+            }
+        
+            shapeRenderer.end();
+        }
+    
+
         renderUI();
 
     }
@@ -383,27 +405,30 @@ public class GameScreen implements Screen, DoorObserver {
      * Als dat zo is, wordt de interactie afgehandeld.
      */
     private void checkDoorCollision() {
+    
         for (Door door : doors) {
-            if (!door.isOpen() && player.getBounds().overlaps(door.getBounds())) {
-                // Reset speler positie om door botsing te voorkomen
-                player.setPosition(prevPlayerX, prevPlayerY);
-                
-                // Controleer of de speler toegang heeft tot deze deur
-                if (!gameState.canAccessDoor(door.getDoorId())) {
-                    showMessage("Je moet eerst alle andere kamers hebben open gespeeld voordat je deze kamer kunt betreden!");
-                    return;
+            if (player.getBounds().overlaps(door.getBounds())) {
+    
+                // If the door is open, allow the player to pass through
+                if (door.isOpen()) {
+                    continue;
                 }
-                
-                // Controleer of dit de laatst gefaalde vraag was
-                if (door.getQuestionId().equals(lastFailedQuestionId)) {
-                    showMessage("Je moet eerst een andere kamer proberen voordat je deze opnieuw kunt proberen!");
-                    return;
+    
+                // Check if the door is the final door
+                if (door.getQuestionId().equals("finale")) {
+                    if (!gameState.hasFoundAllTIAObjects()) {
+                        showMessage("Je hebt nog niet alle TIA items gevonden!");
+                        player.setPosition(prevPlayerX, (float) 301.98334);
+                        return; 
+                    }
                 }
-                
+    
+    
                 handleDoorInteraction(door);
-                break;
+                return; 
             }
         }
+    
     }
 
     /**
@@ -586,8 +611,8 @@ public class GameScreen implements Screen, DoorObserver {
         // Bewaar huidige positie voor botsingsdetectie
         prevPlayerX = player.getX();
         prevPlayerY = player.getY();
-        
-        // Verwerk beweging
+    
+        // Process movement
         if (Gdx.input.isKeyPressed(Input.Keys.LEFT)) {
             player.moveLeft();
             hasMoved = true;
@@ -611,6 +636,10 @@ public class GameScreen implements Screen, DoorObserver {
             if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_2)) handleAnswer(1);
             if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_3)) handleAnswer(2);
             if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_4)) handleAnswer(3);
+        }
+
+        if (Gdx.input.isKeyJustPressed(Input.Keys.D)) {
+            debugMode = !debugMode;
         }
 
         
