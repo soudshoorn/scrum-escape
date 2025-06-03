@@ -9,12 +9,13 @@ import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.maps.tiled.TiledMap;
 import com.badlogic.gdx.maps.tiled.TiledMapTileLayer;
 import com.badlogic.gdx.math.Rectangle;
+import nl.webser.scrum_escape.jokers.*;
 
 public class Player {
     private static final float MOVEMENT_SPEED = 60f;
     private static final float PLAYER_SIZE = 16f;
     private static final float FRAME_DURATION = 0.15f;
-    
+
     private float x;
     private float y;
     private final Rectangle bounds;
@@ -27,11 +28,15 @@ public class Player {
     private int frameIndex = 0;
     private float frameTimer = 0;
 
+    private JokerStrategy jokerStrategy;
+
+    private JokerManager jokerManager;
+
     public Player(float x, float y, TiledMap map) {
         this.x = x;
         this.y = y;
         this.bounds = new Rectangle(x, y, PLAYER_SIZE, PLAYER_SIZE);
-        this.walkFrames = new Texture[] {
+        this.walkFrames = new Texture[]{
             new Texture("player1.png"),
             new Texture("player2.png"),
             new Texture("player3.png"),
@@ -40,10 +45,15 @@ public class Player {
         this.currentTexture = new TextureRegion(walkFrames[0]);
         this.collisionLayer = (TiledMapTileLayer) map.getLayers().get("Base");
         this.font = new BitmapFont();
+        this.jokerManager = jokerManager;
+    }
+
+    public Player(int x, int y, TiledMap map, Rectangle bounds, Texture[] walkFrames) {
+        this.bounds = bounds;
+        this.walkFrames = walkFrames;
     }
 
     public void update(float delta) {
-        // Altijd animatie updaten als er een pijltoets wordt ingedrukt
         if (Gdx.input.isKeyPressed(Input.Keys.LEFT) || Gdx.input.isKeyPressed(Input.Keys.RIGHT)
             || Gdx.input.isKeyPressed(Input.Keys.UP) || Gdx.input.isKeyPressed(Input.Keys.DOWN)) {
             frameTimer += delta;
@@ -53,38 +63,27 @@ public class Player {
                 frameTimer = 0;
             }
         }
+
         if (frozen) return;
 
         float oldX = x;
         float oldY = y;
 
-        // Handle movement input
-        if (Gdx.input.isKeyPressed(Input.Keys.LEFT)) {
-            x -= MOVEMENT_SPEED * delta;
-        }
-        if (Gdx.input.isKeyPressed(Input.Keys.RIGHT)) {
-            x += MOVEMENT_SPEED * delta;
-        }
-        if (Gdx.input.isKeyPressed(Input.Keys.UP)) {
-            y += MOVEMENT_SPEED * delta;
-        }
-        if (Gdx.input.isKeyPressed(Input.Keys.DOWN)) {
-            y -= MOVEMENT_SPEED * delta;
-        }
+        if (Gdx.input.isKeyPressed(Input.Keys.LEFT)) x -= MOVEMENT_SPEED * delta;
+        if (Gdx.input.isKeyPressed(Input.Keys.RIGHT)) x += MOVEMENT_SPEED * delta;
+        if (Gdx.input.isKeyPressed(Input.Keys.UP)) y += MOVEMENT_SPEED * delta;
+        if (Gdx.input.isKeyPressed(Input.Keys.DOWN)) y -= MOVEMENT_SPEED * delta;
 
-        // Update bounds
         bounds.x = x;
         bounds.y = y;
 
-        // Collision detection with walls
         if (x < 0) x = 0;
         if (y < 0) y = 0;
         if (x > 800 - PLAYER_SIZE) x = 800 - PLAYER_SIZE;
         if (y > 600 - PLAYER_SIZE) y = 600 - PLAYER_SIZE;
 
-        // Check tile collision
-        int tileX = (int)(x / collisionLayer.getTileWidth());
-        int tileY = (int)(y / collisionLayer.getTileHeight());
+        int tileX = (int) (x / collisionLayer.getTileWidth());
+        int tileY = (int) (y / collisionLayer.getTileHeight());
         TiledMapTileLayer.Cell cell = collisionLayer.getCell(tileX, tileY);
 
         if (cell != null && cell.getTile() != null) {
@@ -93,6 +92,10 @@ public class Player {
                 x = oldX;
                 y = oldY;
             }
+        }
+
+        if (Gdx.input.isKeyJustPressed(Input.Keys.SPACE)) {
+            gebruikJoker();
         }
     }
 
@@ -134,9 +137,6 @@ public class Player {
         this.bounds.y = y;
     }
 
-    /**
-     * Beweegt de speler naar links.
-     */
     public void moveLeft() {
         if (frozen) return;
         float oldX = x;
@@ -148,9 +148,6 @@ public class Player {
         }
     }
 
-    /**
-     * Beweegt de speler naar rechts.
-     */
     public void moveRight() {
         if (frozen) return;
         float oldX = x;
@@ -162,9 +159,6 @@ public class Player {
         }
     }
 
-    /**
-     * Beweegt de speler omhoog.
-     */
     public void moveUp() {
         if (frozen) return;
         float oldY = y;
@@ -176,9 +170,6 @@ public class Player {
         }
     }
 
-    /**
-     * Beweegt de speler omlaag.
-     */
     public void moveDown() {
         if (frozen) return;
         float oldY = y;
@@ -190,10 +181,6 @@ public class Player {
         }
     }
 
-    /**
-     * Controleert of de speler botst met een geblokkeerde tegel.
-     * @return true als er een botsing is, anders false
-     */
     private boolean checkCollision() {
         int tileX = (int)(x / collisionLayer.getTileWidth());
         int tileY = (int)(y / collisionLayer.getTileHeight());
@@ -204,10 +191,44 @@ public class Player {
                 return true;
             }
         }
-        // Controleer ook of de speler buiten het scherm komt
-        if (x < 0 || y < 0 || x > 800 - PLAYER_SIZE || y > 600 - PLAYER_SIZE) {
-            return true;
+        return x < 0 || y < 0 || x > 800 - PLAYER_SIZE || y > 600 - PLAYER_SIZE;
+    }
+
+    public void kiesJokerStrategie(JokerStrategy strategy) {
+        this.jokerStrategy = strategy;
+    }
+
+    public void gebruikJoker() {
+        Joker gekozen = jokerManager.getGekozenJoker();
+        if (gekozen == null) {
+            System.out.println("Geen joker geselecteerd.");
+            return;
         }
-        return false;
+
+        JokerStrategy strategy;
+
+        switch (gekozen) {
+            case HINT_JOKER:
+                strategy = new HintJoker();
+                break;
+            case KEY_JOKER:
+                strategy = new KeyJoker(getHuidigeKamerId());
+                break;
+            default:
+                System.out.println("Onbekende joker.");
+                return;
+        }
+
+        if (jokerManager.jokerBeschikbaar(gekozen)) {
+            strategy.gebruik();
+            jokerManager.gebruikJoker(gekozen);
+        } else {
+            System.out.println("Deze joker is al gebruikt.");
+        }
+    }
+
+    public int getHuidigeKamerId() {
+        // Pas dit aan naar jouw spel-logica
+        return 0;
     }
 }
