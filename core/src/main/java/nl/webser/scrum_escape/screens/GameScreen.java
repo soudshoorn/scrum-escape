@@ -39,7 +39,7 @@ import nl.webser.scrum_escape.ui.TypewriterEffect;
  * 2. Het verwerken van speler input
  * 3. Het updaten van de spelstatus
  * 4. Het renderen van alle spel elementen
- * 
+ *
  * Design Patterns gebruikt:
  * - Observer Pattern: Voor het monitoren van deur status veranderingen
  * - Strategy Pattern: Voor het afhandelen van verschillende vraag types
@@ -55,22 +55,22 @@ public class GameScreen implements Screen, DoorObserver {
     private static final float QUESTION_TEXT_X = 50f;         // X-positie van de vraagtekst
     private static final float QUESTION_TEXT_Y = 150f;        // Y-positie van de vraagtekst
     private static final float QUESTION_LINE_SPACING = 25f;   // Ruimte tussen tekstregels
-    
+
     // Timing instellingen
     private static final float MESSAGE_DURATION = 1f;         // Hoe lang een bericht wordt getoond
     private static final float MESSAGE_FADE_DURATION = 0.5f;  // Hoe lang het fade effect duurt
     private static final float WARNING_DURATION = 2f;         // Hoe lang een waarschuwing wordt getoond
-    
+
     // Venster afmetingen
     private static final int WINDOW_WIDTH = 800;              // Breedte van het spelvenster
     private static final int WINDOW_HEIGHT = 640;             // Hoogte van het spelvenster
-    
+
     // Monster eigenschappen
     private static final float MONSTER_SPEED = 100f;          // Snelheid van het monster
     private static final float MONSTER_FADE_SPEED = 0.5f;     // Snelheid van het fade effect
     private static final float MONSTER_SIZE = 32f;            // Grootte van het monster in pixels
     private static final float MONSTER_OFFSET = 40f;          // Afstand van het monster tot de deur
-    
+
     // Kern spel componenten (final omdat deze niet veranderen na initialisatie)
     private final SpriteBatch batch;                          // Voor het tekenen van sprites
     private final OrthographicCamera camera;                  // Camera voor het spel
@@ -84,7 +84,7 @@ public class GameScreen implements Screen, DoorObserver {
     private final OrthogonalTiledMapRenderer mapRenderer;     // Tekent de spelkaart
     private final List<Door> doors;                          // Alle deuren in het spel
     private final List<TIAObject> tiaObjects;                // Alle TIA objecten in het spel
-    
+
     // Spel status variabelen
     private Door currentDoor;                                // De huidige deur waar de speler mee interacteert
     private QuestionStrategy currentQuestion;                // De huidige vraag die wordt getoond
@@ -112,7 +112,9 @@ public class GameScreen implements Screen, DoorObserver {
     private boolean gameCompleted = false;                   // Of het spel is voltooid
     private float completionTimer = 0;                       // Timer voor transitie naar success screen
     private static final float COMPLETION_DELAY = 5f;        // Hoe lang wachten voor success screen
-    
+    private boolean jokerUsed = false;
+    // Joker mag maar één keer gebruikt worden
+
     // Add these fields at the top of the class with other fields
     private com.badlogic.gdx.audio.Sound correctSound;
     private com.badlogic.gdx.audio.Sound wrongSound;
@@ -132,27 +134,27 @@ public class GameScreen implements Screen, DoorObserver {
         camera = new OrthographicCamera();
         camera.setToOrtho(false, WINDOW_WIDTH, WINDOW_HEIGHT);
         camera.zoom = CAMERA_ZOOM;
-        
+
         uiCamera = new OrthographicCamera();
         uiCamera.setToOrtho(false, WINDOW_WIDTH, WINDOW_HEIGHT);
-        
+
         // Laad en stel de spelkaart in
         map = AssetManager.getInstance().getTiledMap("scrum.tmx");
         mapRenderer = new OrthogonalTiledMapRenderer(map);
-        
+
         // Initialiseer speler en managers
         player = new Player(300, 420, map);
         questionManager = QuestionManager.getInstance();
         gameState = GameState.getInstance();
         font = new BitmapFont();
         typewriterEffect = new TypewriterEffect();
-        
+
         // Load sound effects
         correctSound = AssetManager.getInstance().getSound("correct.wav");
         wrongSound = AssetManager.getInstance().getSound("wrong.wav");
         welcomeSound = AssetManager.getInstance().getSound("welcome.wav");
         winnerSound = AssetManager.getInstance().getSound("winner.wav");
-        
+
         // Start welkomsttekst met langzamere typewriter snelheid
         typewriterEffect.setTypingSpeed(0.03f); // Langzamere snelheid voor welkomsttekst
         welcomeSound.play();
@@ -161,15 +163,15 @@ public class GameScreen implements Screen, DoorObserver {
             "Vind alle TIA objecten en beantwoord de vragen correct.\n" +
             "Pas op voor het monster als je een vraag fout beantwoordt!");
         typewriterEffect.setTypingSpeed(0.015f); // Reset naar normale snelheid
-        
+
         // Initialiseer lijsten voor deuren en TIA objecten
         doors = new ArrayList<>();
         tiaObjects = new ArrayList<>();
-        
+
         // Laad deuren en TIA objecten van de kaart
         loadDoors();
         loadTIAObjects();
-        
+
         // Initialiseer spel status
         showingQuestion = false;
         waitingForAnswer = false;
@@ -194,11 +196,11 @@ public class GameScreen implements Screen, DoorObserver {
                 Rectangle rect = rectObject.getRectangle();
                 Integer doorIdInt = object.getProperties().get("doorId", Integer.class);
                 Integer questionIdInt = object.getProperties().get("questionId", Integer.class);
-                
+
                 if (doorIdInt != null && questionIdInt != null) {
                     String doorId = "door" + doorIdInt;
                     String questionId;
-                    
+
                     // Zet vraag IDs om naar het juiste formaat
                     switch (questionIdInt) {
                         case 1: questionId = "sprint1"; break;
@@ -209,7 +211,7 @@ public class GameScreen implements Screen, DoorObserver {
                         case 6: questionId = "finale"; break;
                         default: questionId = "sprint1"; // Fallback
                     }
-                    
+
                     // Maak een nieuwe deur aan
                     Door door = new Door(
                         doorId,
@@ -241,12 +243,12 @@ public class GameScreen implements Screen, DoorObserver {
                     RectangleMapObject rectObject = (RectangleMapObject) object;
                     Rectangle rect = rectObject.getRectangle();
                     Integer value = object.getProperties().get("value", Integer.class);
-                    
+
                     if (value != null) {
                         // Maak de objecten groter voor betere zichtbaarheid
                         float width = Math.max(rect.width, 64f);   // Minimale breedte van 64 pixels
                         float height = Math.max(rect.height, 64f);  // Minimale hoogte van 64 pixels
-                        
+
                         TIAObject tiaObject = new TIAObject(
                             rect.x,
                             rect.y,
@@ -366,6 +368,10 @@ public class GameScreen implements Screen, DoorObserver {
         }
     }
 
+
+
+
+
     /**
      * Controleert of de speler met een deur botst.
      * Als dat zo is, wordt de interactie afgehandeld.
@@ -375,19 +381,19 @@ public class GameScreen implements Screen, DoorObserver {
             if (!door.isOpen() && player.getBounds().overlaps(door.getBounds())) {
                 // Reset speler positie om door botsing te voorkomen
                 player.setPosition(prevPlayerX, prevPlayerY);
-                
+
                 // Controleer of de speler toegang heeft tot deze deur
                 if (!gameState.canAccessDoor(door.getDoorId())) {
                     showMessage("Je moet eerst alle andere kamers hebben open gespeeld voordat je deze kamer kunt betreden!");
                     return;
                 }
-                
+
                 // Controleer of dit de laatst gefaalde vraag was
                 if (door.getQuestionId().equals(lastFailedQuestionId)) {
                     showMessage("Je moet eerst een andere kamer proberen voordat je deze opnieuw kunt proberen!");
                     return;
                 }
-                
+
                 handleDoorInteraction(door);
                 break;
             }
@@ -442,14 +448,13 @@ public class GameScreen implements Screen, DoorObserver {
         typewriterEffect.start(currentQuestion.getQuestion());
         // Monster niet resetten bij nieuwe vraag
     }
-
     /**
      * Handelt het antwoord van de speler af.
      * @param selectedOption Het gekozen antwoord (0-based index)
      */
     private void handleAnswer(int selectedOption) {
         if (!waitingForAnswer) return;
-        
+
         if (showingFinalQuestion) {
             handleFinalQuestionAnswer(selectedOption);
         } else {
@@ -467,6 +472,9 @@ public class GameScreen implements Screen, DoorObserver {
         } else {
             handleWrongFinalAnswer();
         }
+    }
+
+    private void handleWrongFinalAnswer() {
     }
 
     /**
@@ -520,6 +528,31 @@ public class GameScreen implements Screen, DoorObserver {
     }
 
     /**
+     * Gebruikt de joker om een vraag over te slaan zonder straf.
+     * De deur gaat direct open en het monster wordt gereset.
+     */
+    private void useJoker() {
+        if (jokerUsed) {
+            showMessage("Je hebt de joker al gebruikt!");
+            return;
+        }
+        if (!waitingForAnswer) {
+            showMessage("Er is geen actieve vraag om te overslaan!");
+            return;
+        }
+        jokerUsed = true;
+        correctSound.play();
+        gameState.markQuestionAnswered(currentQuestion.getQuestionId());
+        currentDoor.setOpen(true);
+        gameState.markDoorOpened(currentDoor.getDoorId());
+        gameState.clearActiveQuestion();
+        monster.reset();
+        showingQuestion = false;
+        waitingForAnswer = false;
+        showMessage("Je hebt de joker gebruikt! De deur is nu open zonder straf.");
+    }
+
+    /**
      * Handelt een correct antwoord voor een finale vraag af.
      * Toont de volgende finale vraag of eindigt het spel.
      */
@@ -545,21 +578,7 @@ public class GameScreen implements Screen, DoorObserver {
             showingFinalQuestion = false;
             gameCompleted = true;  // Markeer het spel als voltooid
         }
-    }
-
-    /**
-     * Handelt een fout antwoord voor een finale vraag af.
-     * Toont een waarschuwing en activeert het monster.
-     */
-    private void handleWrongFinalAnswer() {
-        gameState.setMonsterActive(true);
-        showingWarning = true;
-        warningTimer = WARNING_DURATION;
-        showMessage("Dat is niet correct! Het monster komt dichterbij...\nBeantwoord de vraag goed of het monster zal je te pakken krijgen!");
-        waitingForAnswer = true;
-    }
-
-    /**
+    }/**
      * Verwerkt speler input.
      * Beweegt de speler en handelt antwoorden af.
      */
@@ -567,7 +586,7 @@ public class GameScreen implements Screen, DoorObserver {
         // Bewaar huidige positie voor botsingsdetectie
         prevPlayerX = player.getX();
         prevPlayerY = player.getY();
-        
+
         // Verwerk beweging
         if (Gdx.input.isKeyPressed(Input.Keys.LEFT)) {
             player.moveLeft();
@@ -585,15 +604,21 @@ public class GameScreen implements Screen, DoorObserver {
             player.moveDown();
             hasMoved = true;
         }
-        
+
         // Verwerk antwoorden
         if (waitingForAnswer) {
             if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_1)) handleAnswer(0);
             if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_2)) handleAnswer(1);
             if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_3)) handleAnswer(2);
             if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_4)) handleAnswer(3);
+
+            // ✅ Joker activeren met toets J
+            if (Gdx.input.isKeyJustPressed(Input.Keys.J)) {
+                useJoker();
+            }
         }
     }
+
 
     /**
      * Toont een bericht aan de speler.
@@ -689,7 +714,6 @@ public class GameScreen implements Screen, DoorObserver {
 
     /**
      * Formatteert een bericht voor een gevonden TIA object.
-     * @param message Het basis bericht
      * @param tiaType Het type TIA object (1=T, 2=I, 3=A)
      * @return Het geformatteerde bericht
      */
@@ -716,7 +740,7 @@ public class GameScreen implements Screen, DoorObserver {
 
         return "Je hebt het " + tiaName + " TIA object gevonden!" + "\n" + explanation;
     }
-    
+
     /**
      * Wordt aangeroepen wanneer een deur wordt geopend.
      * @param doorId De ID van de geopende deur
@@ -738,7 +762,7 @@ public class GameScreen implements Screen, DoorObserver {
         camera.viewportWidth = width;
         camera.viewportHeight = height;
         camera.update();
-        
+
         // Update UI camera viewport
         uiCamera.viewportWidth = width;
         uiCamera.viewportHeight = height;
@@ -817,3 +841,4 @@ public class GameScreen implements Screen, DoorObserver {
         return lines;
     }
 }
+
