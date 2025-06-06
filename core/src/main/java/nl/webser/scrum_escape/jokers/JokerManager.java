@@ -1,9 +1,10 @@
 package nl.webser.scrum_escape.jokers;
 
-import java.util.EnumSet;
+import java.util.HashSet;
+import java.util.Set;
 
 public class JokerManager {
-    private final EnumSet<Joker> beschikbareJokers = EnumSet.noneOf(Joker.class);
+    private final Set<Joker> beschikbareJokers = new HashSet<>();
     private Joker gekozenJoker;
 
     // Voeg een joker toe aan de beschikbare jokers (bijv. bij spelstart)
@@ -15,6 +16,7 @@ public class JokerManager {
     public void kiesJoker(Joker joker) {
         if (beschikbareJokers.contains(joker)) {
             this.gekozenJoker = joker;
+            System.out.println("Joker gekozen: " + joker);
         } else {
             System.out.println("Joker niet beschikbaar: " + joker);
         }
@@ -36,7 +38,7 @@ public class JokerManager {
         }
     }
 
-    public EnumSet<Joker> getBeschikbareJokers() {
+    public Set<Joker> getBeschikbareJokers() {
         return beschikbareJokers;
     }
 }

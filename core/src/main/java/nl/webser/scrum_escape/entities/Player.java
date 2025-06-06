@@ -1,5 +1,8 @@
 package nl.webser.scrum_escape.entities;
 
+import nl.webser.scrum_escape.jokers.KeyJoker;
+import nl.webser.scrum_escape.jokers.HintJoker;
+
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Texture;
@@ -94,9 +97,6 @@ public class Player {
             }
         }
 
-        if (Gdx.input.isKeyJustPressed(Input.Keys.SPACE)) {
-            gebruikJoker();
-        }
     }
 
     public void render(SpriteBatch batch) {
@@ -198,37 +198,4 @@ public class Player {
         this.jokerStrategy = strategy;
     }
 
-    public void gebruikJoker() {
-        Joker gekozen = jokerManager.getGekozenJoker();
-        if (gekozen == null) {
-            System.out.println("Geen joker geselecteerd.");
-            return;
-        }
-
-        JokerStrategy strategy;
-
-        switch (gekozen) {
-            case HINT_JOKER:
-                strategy = new HintJoker();
-                break;
-            case KEY_JOKER:
-                strategy = new KeyJoker(getHuidigeKamerId());
-                break;
-            default:
-                System.out.println("Onbekende joker.");
-                return;
-        }
-
-        if (jokerManager.jokerBeschikbaar(gekozen)) {
-            strategy.gebruik();
-            jokerManager.gebruikJoker(gekozen);
-        } else {
-            System.out.println("Deze joker is al gebruikt.");
-        }
-    }
-
-    public int getHuidigeKamerId() {
-        // Pas dit aan naar jouw spel-logica
-        return 0;
-    }
 }
