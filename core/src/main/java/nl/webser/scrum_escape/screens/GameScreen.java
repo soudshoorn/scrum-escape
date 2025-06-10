@@ -597,6 +597,11 @@ public class GameScreen implements Screen, DoorObserver {
         System.out.println("Hint: " + currentHint);
     }
 
+
+    public void addEducationalAid(String aid) {
+        System.out.println("Educatief hulpmiddel: " + aid);
+    }
+
     public void openDoorWithKeyJoker() {
         correctSound.play();
         gameState.markQuestionAnswered(currentQuestion.getQuestionId());
@@ -720,7 +725,7 @@ public class GameScreen implements Screen, DoorObserver {
             player.moveDown();
             hasMoved = true;
         }
-
+        
         // Verwerk antwoorden
         if (waitingForAnswer) {
             if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_1)) handleAnswer(0);
@@ -731,6 +736,10 @@ public class GameScreen implements Screen, DoorObserver {
             if (Gdx.input.isKeyJustPressed(Input.Keys.J)) {
                 useJoker();
             }
+            if (Gdx.input.isKeyJustPressed(Input.Keys.A)) {
+                Room room = getRoomForDoor(currentDoor);
+                room.activateAssistant();
+            }
         }
 
         if (Gdx.input.isKeyJustPressed(Input.Keys.D)) {
@@ -738,7 +747,6 @@ public class GameScreen implements Screen, DoorObserver {
         }
         
     }
-
 
     /**
      * Toont een bericht aan de speler.

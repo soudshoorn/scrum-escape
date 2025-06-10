@@ -21,6 +21,13 @@ public class OtherRoom implements Room {
     }
 
     @Override
+    public void activateAssistant() {
+        gameScreen.showHint();
+        gameScreen.addEducationalAid("Instructie: Vraag altijd om feedback!");
+        gameScreen.showMessage("Je denkt als een echte product owner!");
+    }
+
+    @Override
     public String getName() {
         return "Other";
     }

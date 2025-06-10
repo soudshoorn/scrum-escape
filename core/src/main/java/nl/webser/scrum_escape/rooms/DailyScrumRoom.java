@@ -20,6 +20,12 @@ public class DailyScrumRoom implements Room {
         gameScreen.openDoorWithKeyJoker();
         return true;
     }
+    @Override
+    public void activateAssistant() {
+        gameScreen.showHint();
+        gameScreen.addEducationalAid("Stappenplan: Check de Definition of Done!");
+        gameScreen.showMessage("Je denkt als een echte product owner!");
+    }
 
     @Override
     public String getName() {
