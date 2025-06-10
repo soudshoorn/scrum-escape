@@ -30,11 +30,20 @@ import nl.webser.scrum_escape.entities.TIAObject;
 import nl.webser.scrum_escape.observer.DoorObserver;
 import nl.webser.scrum_escape.questions.QuestionManager;
 import nl.webser.scrum_escape.questions.QuestionStrategy;
+import nl.webser.scrum_escape.rooms.Room;
+import nl.webser.scrum_escape.rooms.OtherRoom;
+import nl.webser.scrum_escape.rooms.DailyScrumRoom;
 import nl.webser.scrum_escape.ui.TypewriterEffect;
 
 
 import nl.webser.scrum_escape.hints.HintFactory;
 import nl.webser.scrum_escape.hints.HintProvider;
+import nl.webser.scrum_escape.jokers.HintJoker;
+import nl.webser.scrum_escape.jokers.Joker;
+import nl.webser.scrum_escape.jokers.JokerManager;
+import nl.webser.scrum_escape.jokers.JokerStrategy;
+import nl.webser.scrum_escape.jokers.KeyJoker;
+
 
 /**
  * GameScreen is het hoofdscherm van het Scrum Escape spel.
@@ -134,6 +143,12 @@ public class GameScreen implements Screen, DoorObserver {
     
     private boolean debugMode = true;
 
+    private final JokerManager jokerManager = new JokerManager();
+    private String currentRoom;
+
+    private boolean jokerGekozen = false;
+
+
 
 
 
@@ -172,9 +187,12 @@ public class GameScreen implements Screen, DoorObserver {
         typewriterEffect.setTypingSpeed(0.03f); // Langzamere snelheid voor welkomsttekst
         welcomeSound.play();
         typewriterEffect.start("Welkom bij Scrum Escape!\n\n" +
-            "Gebruik de pijltjestoetsen om te bewegen.\n" +
-            "Vind alle TIA objecten en beantwoord de vragen correct.\n" +
-            "Pas op voor het monster als je een vraag fout beantwoordt!");
+        "Gebruik de pijltjestoetsen om te bewegen.\n" +
+        "Vind alle TIA objecten en beantwoord de vragen correct.\n" +
+        "Pas op voor het monster als je een vraag fout beantwoordt!\n\n" +
+        "Kies nu je joker:\n" +
+        "Druk op 1 voor een Hint Joker (altijd hints)\n" +
+        "Druk op 2 voor een Key Joker (extra sleutel in Daily Scrum/Review)");
         typewriterEffect.setTypingSpeed(0.015f); // Reset naar normale snelheid
 
         // Initialiseer lijsten voor deuren en TIA objecten
@@ -336,10 +354,7 @@ public class GameScreen implements Screen, DoorObserver {
         
             shapeRenderer.end();
         }
-    
-
         renderUI();
-
     }
 
     /**
@@ -402,52 +417,48 @@ public class GameScreen implements Screen, DoorObserver {
         }
     }
 
-
-
-
-
     /**
      * Controleert of de speler met een deur botst.
      * Als dat zo is, wordt de interactie afgehandeld.
      */
-private void checkDoorCollision() {
-    for (Door door : doors) {
-        if (player.getBounds().overlaps(door.getBounds())) {
+    private void checkDoorCollision() {
+        for (Door door : doors) {
+            if (player.getBounds().overlaps(door.getBounds())) {
 
-            // Als de deur open is, laat de speler erdoor
-            if (door.isOpen()) {
-                continue;
-            }
+                // Als de deur open is, laat de speler erdoor
+                if (door.isOpen()) {
+                    continue;
+                }
 
-            // Reset speler positie om botsing te voorkomen
-            player.setPosition(prevPlayerX, prevPlayerY);
+                // Reset speler positie om botsing te voorkomen
+                player.setPosition(prevPlayerX, prevPlayerY);
 
-            // Controleer of de speler toegang heeft tot deze deur
-            if (!gameState.canAccessDoor(door.getDoorId())) {
-                showMessage("Je moet eerst alle andere kamers hebben open gespeeld voordat je deze kamer kunt betreden!");
-                return;
-            }
-
-            // Controleer of dit de laatst gefaalde vraag was
-            if (door.getQuestionId().equals(lastFailedQuestionId)) {
-                showMessage("Je moet eerst een andere kamer proberen voordat je deze opnieuw kunt proberen!");
-                return;
-            }
-
-            // Controleer of dit de finale deur is
-            if (door.getQuestionId().equals("finale")) {
-                if (!gameState.hasFoundAllTIAObjects()) {
-                    showMessage("Je hebt nog niet alle TIA items gevonden!");
-                    player.setPosition(prevPlayerX, (float) 301.98334);
+                // Controleer of de speler toegang heeft tot deze deur
+                if (!gameState.canAccessDoor(door.getDoorId())) {
+                    showMessage("Je moet eerst alle andere kamers hebben open gespeeld voordat je deze kamer kunt betreden!");
                     return;
                 }
-            }
 
-            handleDoorInteraction(door);
-            return;
+                // Controleer of dit de laatst gefaalde vraag was
+                if (door.getQuestionId().equals(lastFailedQuestionId)) {
+                    showMessage("Je moet eerst een andere kamer proberen voordat je deze opnieuw kunt proberen!");
+                    return;
+                }
+
+                // Controleer of dit de finale deur is
+                if (door.getQuestionId().equals("finale")) {
+                    if (!gameState.hasFoundAllTIAObjects()) {
+                        showMessage("Je hebt nog niet alle TIA items gevonden!");
+                        player.setPosition(prevPlayerX, (float) 301.98334);
+                        return;
+                    }
+                }
+
+                handleDoorInteraction(door);
+                return;
+            }
         }
     }
-}
 
 
     /**
@@ -476,6 +487,8 @@ private void checkDoorCollision() {
             return;
         }
         currentDoor = door;
+        currentRoom = door.getQuestionId();
+
         if (door.getQuestionId().equals("finale")) {
             currentQuestion = QuestionManager.getFinalQuestion(finalQuestionIndex);
             showingFinalQuestion = true;
@@ -571,33 +584,20 @@ private void checkDoorCollision() {
             monster.activate(player);
             showingWarning = true;
             warningTimer = WARNING_DURATION;
-            showMessage("Dat is niet correct! Het monster komt dichterbij...\nBeantwoord de vraag goed of het monster zal je te pakken krijgen!\nDruk op 'H' voor een hint.");
+            showMessage("Dat is niet correct! Het monster komt dichterbij...\nBeantwoord de vraag goed of het monster zal je te pakken krijgen!");
             waitingForAnswer = true;
             canShowHint = true; // Hint kan nu worden getoond
         }
         currentHint = null; // Reset de hint bij een fout antwoord
     }
-        // Methode om hints te tonen
-    private void showHint() {
+
+    public void showHint() {
         HintProvider hintProvider = HintFactory.createHintProvider();
         currentHint = hintProvider.getHint();
-        System.out.println("Hint: " + currentHint); // Voor debugging
+        System.out.println("Hint: " + currentHint);
     }
 
-    /**
-     * Gebruikt de joker om een vraag over te slaan zonder straf.
-     * De deur gaat direct open en het monster wordt gereset.
-     */
-    private void useJoker() {
-        if (jokerUsed) {
-            showMessage("Je hebt de joker al gebruikt!");
-            return;
-        }
-        if (!waitingForAnswer) {
-            showMessage("Er is geen actieve vraag om te overslaan!");
-            return;
-        }
-        jokerUsed = true;
+    public void openDoorWithKeyJoker() {
         correctSound.play();
         gameState.markQuestionAnswered(currentQuestion.getQuestionId());
         currentDoor.setOpen(true);
@@ -606,9 +606,49 @@ private void checkDoorCollision() {
         monster.reset();
         showingQuestion = false;
         waitingForAnswer = false;
-        showMessage("Je hebt de joker gebruikt! De deur is nu open zonder straf.");
+        showMessage("Je hebt de Key Joker gebruikt! De deur is nu open zonder straf.");
     }
 
+    /**
+     * Gebruikt de joker om een vraag over te slaan zonder straf.
+     * De deur gaat direct open en het monster wordt gereset.
+     */
+    // In GameScreen.java
+    private void useJoker() {
+    if (jokerUsed) {
+        showMessage("Je hebt de joker al gebruikt!");
+        return;
+    }
+    if (!waitingForAnswer) {
+        showMessage("Er is geen actieve vraag om een joker op te gebruiken!");
+        return;
+    }
+    Joker gekozenJoker = jokerManager.getGekozenJoker();
+    if (gekozenJoker == null) {
+        showMessage("Je hebt geen joker geselecteerd!");
+        return;
+    }
+
+    Room room = getRoomForDoor(currentDoor);
+    boolean jokerEffect = false;
+    switch (gekozenJoker) {
+        case HINT_JOKER:
+            showHint();
+            jokerEffect = true;
+            break;
+        case KEY_JOKER:
+            jokerEffect = room.applyKeyJoker();
+            break;
+        default:
+            showMessage("Onbekende joker.");
+            return;
+    }
+
+    if (jokerEffect) {
+        jokerManager.gebruikJoker(gekozenJoker);
+        jokerUsed = true;
+    }
+}
     /**
      * Handelt een correct antwoord voor een finale vraag af.
      * Toont de volgende finale vraag of eindigt het spel.
@@ -640,6 +680,25 @@ private void checkDoorCollision() {
      * Beweegt de speler en handelt antwoorden af.
      */
     private void handleInput() {
+        if (!jokerGekozen && showingWelcome) {
+            player.setFrozen(true);
+            if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_1)) {
+                jokerManager.voegBeschikbareJokerToe(Joker.HINT_JOKER);
+                jokerManager.kiesJoker(Joker.HINT_JOKER);
+                jokerGekozen = true;
+                showMessage("Je hebt de Hint Joker gekozen!");
+                player.setFrozen(false);
+            }
+            if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_2)) {
+                jokerManager.voegBeschikbareJokerToe(Joker.KEY_JOKER);
+                jokerManager.kiesJoker(Joker.KEY_JOKER);
+                jokerGekozen = true;
+                showMessage("Je hebt de Key Joker gekozen!");
+                player.setFrozen(false);
+            }
+            return; // Wacht tot er gekozen is
+        }
+
         // Bewaar huidige positie voor botsingsdetectie
         prevPlayerX = player.getX();
         prevPlayerY = player.getY();
@@ -669,7 +728,6 @@ private void checkDoorCollision() {
             if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_3)) handleAnswer(2);
             if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_4)) handleAnswer(3);
 
-            // ✅ Joker activeren met toets J
             if (Gdx.input.isKeyJustPressed(Input.Keys.J)) {
                 useJoker();
             }
@@ -678,13 +736,7 @@ private void checkDoorCollision() {
         if (Gdx.input.isKeyJustPressed(Input.Keys.D)) {
             debugMode = !debugMode;
         }
-
         
-    // Verwerk hint aanvraag
-    if (canShowHint && Gdx.input.isKeyJustPressed(Input.Keys.H)) {
-        showHint(); // Toon een hint
-        canShowHint = false; // Hint is bekeken, reset de mogelijkheid
-    }
     }
 
 
@@ -692,7 +744,7 @@ private void checkDoorCollision() {
      * Toont een bericht aan de speler.
      * @param message Het bericht om te tonen
      */
-    private void showMessage(String message) {
+    public void showMessage(String message) {
         currentMessage = message;
         messageTimer = MESSAGE_DURATION;
         isMessageFading = false;
@@ -914,5 +966,24 @@ private void checkDoorCollision() {
         }
         return lines;
     }
-}
 
+    private Room getRoomForDoor(Door door) {
+        String questionId = door.getQuestionId();
+        switch (questionId) {
+            case "sprint1":
+                return new OtherRoom(this); // Pass GameScreen if needed
+            case "sprint2":
+                return new DailyScrumRoom(this);
+            case "sprint3":
+                return new DailyScrumRoom(this);
+            case "sprint4":
+                return new OtherRoom(this);
+            case "sprint5":
+                return new OtherRoom(this);
+            case "finale":
+                return  new OtherRoom(this);
+            default:
+                return new OtherRoom(this); // Fallback
+        }
+    }
+}
