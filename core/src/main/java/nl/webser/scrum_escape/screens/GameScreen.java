@@ -24,25 +24,22 @@ import nl.webser.scrum_escape.AssetManager;
 import nl.webser.scrum_escape.GameState;
 import nl.webser.scrum_escape.ScrumEscapeGame;
 import nl.webser.scrum_escape.entities.Door;
+import nl.webser.scrum_escape.entities.Kamerinfo;
 import nl.webser.scrum_escape.entities.Monster;
 import nl.webser.scrum_escape.entities.Player;
 import nl.webser.scrum_escape.entities.TIAObject;
+import nl.webser.scrum_escape.hints.HintFactory;
+import nl.webser.scrum_escape.hints.HintProvider;
+import nl.webser.scrum_escape.jokers.Joker;
+import nl.webser.scrum_escape.jokers.JokerManager;
 import nl.webser.scrum_escape.observer.DoorObserver;
 import nl.webser.scrum_escape.questions.QuestionManager;
 import nl.webser.scrum_escape.questions.QuestionStrategy;
-import nl.webser.scrum_escape.rooms.Room;
-import nl.webser.scrum_escape.rooms.OtherRoom;
 import nl.webser.scrum_escape.rooms.DailyScrumRoom;
+import nl.webser.scrum_escape.rooms.OtherRoom;
+import nl.webser.scrum_escape.rooms.Room;
 import nl.webser.scrum_escape.ui.TypewriterEffect;
 
-
-import nl.webser.scrum_escape.hints.HintFactory;
-import nl.webser.scrum_escape.hints.HintProvider;
-import nl.webser.scrum_escape.jokers.HintJoker;
-import nl.webser.scrum_escape.jokers.Joker;
-import nl.webser.scrum_escape.jokers.JokerManager;
-import nl.webser.scrum_escape.jokers.JokerStrategy;
-import nl.webser.scrum_escape.jokers.KeyJoker;
 
 
 /**
@@ -148,6 +145,9 @@ public class GameScreen implements Screen, DoorObserver {
 
     private boolean jokerGekozen = false;
 
+    private Kamerinfo kamerinfo;
+    private Kamerinfo activeKamerinfo = null;
+
 
 
 
@@ -202,6 +202,7 @@ public class GameScreen implements Screen, DoorObserver {
         // Laad deuren en TIA objecten van de kaart
         loadDoors();
         loadTIAObjects();
+        loadKamerinfo();
 
         // Initialiseer spel status
         showingQuestion = false;
@@ -294,6 +295,24 @@ public class GameScreen implements Screen, DoorObserver {
         }
     }
 
+    private void loadKamerinfo() {
+    MapLayer bookLayer = map.getLayers().get("Book"); // Use your actual layer name
+    if (bookLayer != null) {
+        MapObjects bookObjects = bookLayer.getObjects();
+        for (MapObject object : bookObjects) {
+            if (object instanceof RectangleMapObject) {
+                RectangleMapObject rectObject = (RectangleMapObject) object;
+                Rectangle rect = rectObject.getRectangle();
+                String message = object.getProperties().get("message", String.class);
+                if (message == null) message = "Dit is het kamerboek. Hier staat uitleg over deze kamer.";
+                kamerinfo = new Kamerinfo(rect.x, rect.y, rect.width, rect.height, message);
+                // If you only want one book, break after the first
+                break;
+            }
+        }
+    }
+}
+
     /**
      * Wordt aangeroepen wanneer het scherm wordt getoond.
      * Reset de spelstatus naar de beginwaarden.
@@ -342,14 +361,17 @@ public class GameScreen implements Screen, DoorObserver {
             shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
             shapeRenderer.setColor(1, 0, 0, 1); // Red for hitboxes
         
-            // Draw player hitbox
             Rectangle playerBounds = player.getBounds();
             shapeRenderer.rect(playerBounds.x, playerBounds.y, playerBounds.width, playerBounds.height);
         
-            // Draw door hitboxes
             for (Door door : doors) {
                 Rectangle doorBounds = door.getBounds();
                 shapeRenderer.rect(doorBounds.x, doorBounds.y, doorBounds.width, doorBounds.height);
+            }
+
+            if (activeKamerinfo != null) {
+                Rectangle kamerinfoBounds = activeKamerinfo.getBounds();
+                shapeRenderer.rect(kamerinfoBounds.x, kamerinfoBounds.y, kamerinfoBounds.width, kamerinfoBounds.height);
             }
         
             shapeRenderer.end();
@@ -407,6 +429,7 @@ public class GameScreen implements Screen, DoorObserver {
             }
         }
         handleInput();
+        checkKamerinfoCollision();
         if (!showingQuestion && !waitingForAnswer) {
             checkDoorCollision();
             checkTIACollision();
@@ -416,6 +439,14 @@ public class GameScreen implements Screen, DoorObserver {
             }
         }
     }
+
+    private void checkKamerinfoCollision() {
+    if (kamerinfo != null && player.getBounds().overlaps(kamerinfo.getBounds())) {
+        activeKamerinfo = kamerinfo;
+    } else if (activeKamerinfo != null) {
+        activeKamerinfo = null;
+    }
+}
 
     /**
      * Controleert of de speler met een deur botst.
@@ -820,6 +851,9 @@ public class GameScreen implements Screen, DoorObserver {
                 vraag.append((i + 1)).append(") ").append(options[i]).append("|||");
             }
             renderGenericMessage(vraag.toString());
+        }
+        if (activeKamerinfo != null) {
+            renderGenericMessage(activeKamerinfo.getMessage());
         }
     }
 

@@ -2,9 +2,8 @@ package nl.webser.scrum_escape.entities;
 
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.math.Rectangle;
-import nl.webser.scrum_escape.AssetManager;
 
-public class TIAObject {
+public class TIAObject implements Readable {
     private final Rectangle bounds;
     private final int tiaType; // 1 = Transparantie, 2 = Inspectie, 3 = Aanpassing
     private boolean found;
@@ -35,7 +34,7 @@ public class TIAObject {
     public void setFound(boolean found) {
         this.found = found;
     }
-
+    @Override
     public String getMessage() {
         return TIA_MESSAGES[tiaType - 1];
     }
@@ -43,4 +42,4 @@ public class TIAObject {
     public int getTiaType() {
         return tiaType;
     }
-} 
+}
