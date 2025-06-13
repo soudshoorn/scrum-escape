@@ -1,9 +1,14 @@
 package nl.webser.scrum_escape.jokers;
-import nl.webser.scrum_escape.rooms.Room;
 
-public class KeyJoker implements JokerStrategy {
+import nl.webser.scrum_escape.rooms.BaseRoom;
+
+public class KeyJoker extends Joker {
+    public KeyJoker() {
+        super(JokerType.KEY_JOKER);
+    }
+
     @Override
-    public void gebruik(Room room) {
+    public void gebruik(BaseRoom room) {
         room.applyKeyJoker();
     }
 }

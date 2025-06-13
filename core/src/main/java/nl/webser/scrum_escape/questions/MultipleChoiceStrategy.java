@@ -83,7 +83,7 @@ public class MultipleChoiceStrategy implements QuestionStrategy {
      */
     @Override
     public void onCorrectAnswer() {
-        GameState.getInstance().addScore();
+        GameState.getInstance().addScore(10);
         GameState.getInstance().markQuestionAnswered(questionId);
         GameState.getInstance().markDoorOpened(doorId);
     }

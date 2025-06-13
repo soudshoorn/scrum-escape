@@ -1,6 +1,7 @@
 package nl.webser.scrum_escape.jokers;
-import nl.webser.scrum_escape.rooms.Room;
+
+import nl.webser.scrum_escape.rooms.BaseRoom;
 
 public interface JokerStrategy {
-    void gebruik(Room room);
+    void gebruik(BaseRoom room);
 }

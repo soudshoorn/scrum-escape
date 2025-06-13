@@ -35,9 +35,7 @@ import nl.webser.scrum_escape.jokers.JokerManager;
 import nl.webser.scrum_escape.observer.DoorObserver;
 import nl.webser.scrum_escape.questions.QuestionManager;
 import nl.webser.scrum_escape.questions.QuestionStrategy;
-import nl.webser.scrum_escape.rooms.DailyScrumRoom;
-import nl.webser.scrum_escape.rooms.OtherRoom;
-import nl.webser.scrum_escape.rooms.Room;
+import nl.webser.scrum_escape.rooms.GameRoom;
 import nl.webser.scrum_escape.ui.TypewriterEffect;
 
 
@@ -138,10 +136,10 @@ public class GameScreen implements Screen, DoorObserver {
     private String currentHint;
     private boolean canShowHint = false;
     
-    private boolean debugMode = true;
+    private boolean debugMode = false;
 
     private final JokerManager jokerManager = new JokerManager();
-    private String currentRoom;
+    private final GameRoom gameRoom;
 
     private boolean jokerGekozen = false;
 
@@ -214,6 +212,9 @@ public class GameScreen implements Screen, DoorObserver {
         monsterY = 0;
         monster = new Monster(0, 0); // Startpositie linksboven
         // Monster NIET activeren bij start
+
+        // Initialize game room
+        gameRoom = new GameRoom(this);
     }
 
     /**
@@ -454,38 +455,14 @@ public class GameScreen implements Screen, DoorObserver {
      */
     private void checkDoorCollision() {
         for (Door door : doors) {
-            if (player.getBounds().overlaps(door.getBounds())) {
-
-                // Als de deur open is, laat de speler erdoor
-                if (door.isOpen()) {
-                    continue;
-                }
-
-                // Reset speler positie om botsing te voorkomen
-                player.setPosition(prevPlayerX, prevPlayerY);
-
-                // Controleer of de speler toegang heeft tot deze deur
-                if (!gameState.canAccessDoor(door.getDoorId())) {
-                    showMessage("Je moet eerst alle andere kamers hebben open gespeeld voordat je deze kamer kunt betreden!");
-                    return;
-                }
-
-                // Controleer of dit de laatst gefaalde vraag was
-                if (door.getQuestionId().equals(lastFailedQuestionId)) {
-                    showMessage("Je moet eerst een andere kamer proberen voordat je deze opnieuw kunt proberen!");
-                    return;
-                }
-
-                // Controleer of dit de finale deur is
-                if (door.getQuestionId().equals("finale")) {
-                    if (!gameState.hasFoundAllTIAObjects()) {
-                        showMessage("Je hebt nog niet alle TIA items gevonden!");
-                        player.setPosition(prevPlayerX, (float) 301.98334);
-                        return;
+            if (door.getBounds().overlaps(player.getBounds())) {
+                if (!door.isOpen()) {
+                    // Terugzetten naar vorige positie als de deur dicht is
+                    player.setPosition(prevPlayerX, prevPlayerY);
+                    if (!showingQuestion && !waitingForAnswer) {
+                        handleDoorInteraction(door);
                     }
                 }
-
-                handleDoorInteraction(door);
                 return;
             }
         }
@@ -497,12 +474,12 @@ public class GameScreen implements Screen, DoorObserver {
      * @param door De deur waar de speler mee interacteert
      */
     private void handleDoorInteraction(Door door) {
+        if (door.isOpen()) {
+            return;
+        }
+
         if (door.getQuestionId().equals("finale")) {
-            if (!gameState.hasFoundAllTIAObjects()) {
-                showMessage("Je hebt nog niet alle TIA items gevonden!");
-                return;
-            }
-            showQuestion(door);
+            showFinalQuestion();
         } else {
             showQuestion(door);
         }
@@ -518,7 +495,6 @@ public class GameScreen implements Screen, DoorObserver {
             return;
         }
         currentDoor = door;
-        currentRoom = door.getQuestionId();
 
         if (door.getQuestionId().equals("finale")) {
             currentQuestion = QuestionManager.getFinalQuestion(finalQuestionIndex);
@@ -549,77 +525,57 @@ public class GameScreen implements Screen, DoorObserver {
     private void handleAnswer(int selectedOption) {
         if (!waitingForAnswer) return;
 
-        if (showingFinalQuestion) {
-            handleFinalQuestionAnswer(selectedOption);
-        } else {
-            handleNormalQuestionAnswer(selectedOption);
-        }
-    }
+        waitingForAnswer = false;
+        boolean isCorrect = currentQuestion.checkAnswer(selectedOption);
 
-    /**
-     * Handelt het antwoord voor een finale vraag af.
-     * @param selectedOption Het gekozen antwoord
-     */
-    private void handleFinalQuestionAnswer(int selectedOption) {
-        if (QuestionManager.checkFinalAnswer(finalQuestionIndex, selectedOption)) {
-            handleCorrectFinalAnswer();
-        } else {
-            handleWrongFinalAnswer();
-        }
-    }
-
-    private void handleWrongFinalAnswer() {
-    }
-
-    /**
-     * Handelt het antwoord voor een normale vraag af.
-     * @param selectedOption Het gekozen antwoord
-     */
-    private void handleNormalQuestionAnswer(int selectedOption) {
-        if (currentQuestion.checkAnswer(selectedOption)) {
-            handleCorrectAnswer();
+        if (isCorrect) {
+            correctSound.play();
+            gameState.addScore(10);
+            gameState.markQuestionAnswered(currentQuestion.getQuestionId());
+            gameState.setMonsterActive(false);
+            gameState.resetFailedQuestion(currentQuestion.getQuestionId());
+            
+            if (showingFinalQuestion) {
+                finalQuestionIndex++;
+                if (finalQuestionIndex >= 3) {
+                    // Alle finale vragen zijn beantwoord
+                    gameCompleted = true;
+                    winnerSound.play();
+                    showMessage("Gefeliciteerd! Je hebt alle vragen correct beantwoord!");
+                    // Zorg ervoor dat de finale deur open gaat
+                    for (Door door : doors) {
+                        if (door.getQuestionId().equals("finale")) {
+                            door.setOpen(true);
+                            gameState.markDoorOpened(door.getDoorId());
+                            break;
+                        }
+                    }
+                } else {
+                    showMessage("Correct! Ga door naar de volgende vraag.");
+                }
+            } else {
+                showMessage("Correct! De deur is nu open.");
+                currentDoor.setOpen(true);
+                gameState.markDoorOpened(currentDoor.getDoorId());
+            }
         } else {
             handleWrongAnswer();
         }
-    }
 
-    /**
-     * Handelt een correct antwoord af.
-     * Opent de deur en geeft punten.
-     */
-    private void handleCorrectAnswer() {
-        correctSound.play();
-        gameState.markQuestionAnswered(currentQuestion.getQuestionId());
-        currentDoor.setOpen(true);
-        gameState.markDoorOpened(currentDoor.getDoorId());
-        gameState.clearActiveQuestion();
-        monster.reset();
         showingQuestion = false;
-        waitingForAnswer = false;
-        currentHint = null; // Reset de hint
-        showMessage("Correct! De deur is nu open.");
+        currentQuestion = null;
+        gameState.clearActiveQuestion();
     }
 
-    /**
-     * Handelt een fout antwoord af.
-     * Activeert het monster en geeft een waarschuwing.
-     */
     private void handleWrongAnswer() {
         wrongSound.play();
         gameState.markQuestionFailed(currentQuestion.getQuestionId());
-        int failedAttempts = gameState.getFailedAttempts(currentQuestion.getQuestionId());
-        if (failedAttempts >= 2) {
-            ((ScrumEscapeGame) Gdx.app.getApplicationListener()).showGameOver();
-            monster.reset();
-        } else {
-            monster.activate(player);
-            showingWarning = true;
-            warningTimer = WARNING_DURATION;
-            showMessage("Dat is niet correct! Het monster komt dichterbij...\nBeantwoord de vraag goed of het monster zal je te pakken krijgen!");
-            waitingForAnswer = true;
-            canShowHint = true; // Hint kan nu worden getoond
-        }
-        currentHint = null; // Reset de hint bij een fout antwoord
+        gameState.setMonsterActive(true);
+        showMessage("Fout! Het monster komt eraan!");
+        showingWarning = true;
+        warningTimer = WARNING_DURATION;
+        waitingForAnswer = true;
+        canShowHint = true;
     }
 
     public void showHint() {
@@ -649,69 +605,28 @@ public class GameScreen implements Screen, DoorObserver {
      * Gebruikt de joker om een vraag over te slaan zonder straf.
      * De deur gaat direct open en het monster wordt gereset.
      */
-    // In GameScreen.java
     private void useJoker() {
-    if (jokerUsed) {
-        showMessage("Je hebt de joker al gebruikt!");
-        return;
-    }
-    if (!waitingForAnswer) {
-        showMessage("Er is geen actieve vraag om een joker op te gebruiken!");
-        return;
-    }
-    Joker gekozenJoker = jokerManager.getGekozenJoker();
-    if (gekozenJoker == null) {
-        showMessage("Je hebt geen joker geselecteerd!");
-        return;
-    }
-
-    Room room = getRoomForDoor(currentDoor);
-    boolean jokerEffect = false;
-    switch (gekozenJoker) {
-        case HINT_JOKER:
-            showHint();
-            jokerEffect = true;
-            break;
-        case KEY_JOKER:
-            jokerEffect = room.applyKeyJoker();
-            break;
-        default:
-            showMessage("Onbekende joker.");
+        if (!jokerGekozen) {
+            showMessage("Je hebt nog geen joker gekozen!");
             return;
-    }
+        }
 
-    if (jokerEffect) {
-        jokerManager.gebruikJoker(gekozenJoker);
+        Joker joker = jokerManager.getGekozenJoker();
+        if (joker == null) {
+            showMessage("Je hebt geen joker geselecteerd!");
+            return;
+        }
+
+        if (joker.getType() == Joker.JokerType.KEY_JOKER && jokerUsed) {
+            showMessage("Je hebt de Key Joker al gebruikt!");
+            return;
+        }
+
+        GameRoom room = getRoomForDoor(currentDoor);
+        joker.gebruik(room);
         jokerUsed = true;
     }
-}
     /**
-     * Handelt een correct antwoord voor een finale vraag af.
-     * Toont de volgende finale vraag of eindigt het spel.
-     */
-    private void handleCorrectFinalAnswer() {
-        finalQuestionIndex++;
-        QuestionStrategy nextQuestion = QuestionManager.getFinalQuestion(finalQuestionIndex);
-        if (nextQuestion != null) {
-            currentQuestion = nextQuestion;
-            typewriterEffect.start(currentQuestion.getQuestion());
-        } else {
-            // Speler heeft alle finale vragen voltooid
-            winnerSound.play();
-            typewriterEffect.start("Gefeliciteerd! Je hebt alle vragen correct beantwoord!\n\n" +
-                "Je hebt het Scrum Escape spel succesvol voltooid!\n" +
-                "Je hebt alle TIA objecten verzameld en alle vragen correct beantwoord.\n" +
-                "Je bent nu een echte Scrum expert!");
-            currentDoor.setOpen(true);
-            gameState.markDoorOpened(currentDoor.getDoorId());
-            gameState.clearActiveQuestion();
-            gameState.setMonsterActive(false);
-            showingQuestion = false;
-            waitingForAnswer = false;
-            showingFinalQuestion = false;
-            gameCompleted = true;  // Markeer het spel als voltooid
-        }
-    }/**
      * Verwerkt speler input.
      * Beweegt de speler en handelt antwoorden af.
      */
@@ -719,17 +634,14 @@ public class GameScreen implements Screen, DoorObserver {
         if (!jokerGekozen && showingWelcome) {
             player.setFrozen(true);
             if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_1)) {
-                jokerManager.voegBeschikbareJokerToe(Joker.HINT_JOKER);
-                jokerManager.kiesJoker(Joker.HINT_JOKER);
+                jokerManager.chooseJoker(0); // Hint Joker
                 jokerGekozen = true;
-                showMessage("Je hebt de Hint Joker gekozen!");
+                showMessage("Hint Joker geselecteerd!");
                 player.setFrozen(false);
-            }
-            if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_2)) {
-                jokerManager.voegBeschikbareJokerToe(Joker.KEY_JOKER);
-                jokerManager.kiesJoker(Joker.KEY_JOKER);
+            } else if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_2)) {
+                jokerManager.chooseJoker(1); // Key Joker
                 jokerGekozen = true;
-                showMessage("Je hebt de Key Joker gekozen!");
+                showMessage("Key Joker geselecteerd!");
                 player.setFrozen(false);
             }
             return; // Wacht tot er gekozen is
@@ -768,7 +680,7 @@ public class GameScreen implements Screen, DoorObserver {
                 useJoker();
             }
             if (Gdx.input.isKeyJustPressed(Input.Keys.A)) {
-                Room room = getRoomForDoor(currentDoor);
+                GameRoom room = getRoomForDoor(currentDoor);
                 room.activateAssistant();
             }
         }
@@ -829,7 +741,21 @@ public class GameScreen implements Screen, DoorObserver {
     private void renderUI() {
         batch.setProjectionMatrix(uiCamera.combined);
         batch.begin();
+        
+        // Score bovenaan
         font.draw(batch, "Score: " + gameState.getScore(), UI_PADDING, WINDOW_HEIGHT - UI_PADDING);
+        
+        // Joker tekst eronder
+        if (jokerManager.getGekozenJoker() != null) {
+            String jokerText = "Joker: " + (jokerManager.getGekozenJoker().getType() == Joker.JokerType.HINT_JOKER ? "Hint Joker" : "Key Joker");
+            font.draw(batch, jokerText, UI_PADDING, WINDOW_HEIGHT - UI_PADDING - 25);
+        } else {
+            font.draw(batch, "Joker: Geen gekozen", UI_PADDING, WINDOW_HEIGHT - UI_PADDING - 25);
+        }
+
+        if (waitingForAnswer && !jokerUsed) {
+            font.draw(batch, "Druk op J om een joker te activeren", UI_PADDING, WINDOW_HEIGHT - UI_PADDING - 40);
+        }
         batch.end();
         if (showingWelcome) {
             renderGenericMessage(typewriterEffect.getCurrentText());
@@ -1009,23 +935,31 @@ public class GameScreen implements Screen, DoorObserver {
         return lines;
     }
 
-    private Room getRoomForDoor(Door door) {
-        String questionId = door.getQuestionId();
-        switch (questionId) {
-            case "sprint1":
-                return new OtherRoom(this); // Pass GameScreen if needed
-            case "sprint2":
-                return new DailyScrumRoom(this);
-            case "sprint3":
-                return new DailyScrumRoom(this);
-            case "sprint4":
-                return new OtherRoom(this);
-            case "sprint5":
-                return new OtherRoom(this);
-            case "finale":
-                return  new OtherRoom(this);
-            default:
-                return new OtherRoom(this); // Fallback
+    private GameRoom getRoomForDoor(Door door) {
+        return gameRoom;
+    }
+
+    private void showFinalQuestion() {
+        if (!gameState.hasFoundAllTIAObjects()) {
+            player.setPosition(prevPlayerX, prevPlayerY);
+            showMessage("Je hebt nog niet alle TIA items gevonden!");
+            return;
+        }
+
+        if (finalQuestionIndex >= 3) {
+            // Alle finale vragen zijn beantwoord
+            gameCompleted = true;
+            winnerSound.play();
+            showMessage("Gefeliciteerd! Je hebt alle vragen correct beantwoord!");
+            return;
+        }
+
+        QuestionStrategy question = questionManager.getFinalQuestion(finalQuestionIndex);
+        if (question != null) {
+            currentQuestion = question;
+            showingQuestion = true;
+            waitingForAnswer = true;
+            showingFinalQuestion = true;
         }
     }
 }

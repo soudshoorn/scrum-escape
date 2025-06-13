@@ -1,44 +1,32 @@
 package nl.webser.scrum_escape.jokers;
 
-import java.util.HashSet;
-import java.util.Set;
+import java.util.ArrayList;
+import java.util.List;
 
 public class JokerManager {
-    private final Set<Joker> beschikbareJokers = new HashSet<>();
-    private Joker gekozenJoker;
+    private final List<Joker> availableJokers;
+    private Joker chosenJoker;
 
-    // Voeg een joker toe aan de beschikbare jokers (bijv. bij spelstart)
-    public void voegBeschikbareJokerToe(Joker joker) {
-        beschikbareJokers.add(joker);
+    public JokerManager() {
+        availableJokers = new ArrayList<>();
+        availableJokers.add(new HintJoker());
+        availableJokers.add(new KeyJoker());
     }
 
-    // Kies een joker uit de beschikbare jokers
-    public void kiesJoker(Joker joker) {
-        if (beschikbareJokers.contains(joker)) {
-            this.gekozenJoker = joker;
-            System.out.println("Joker gekozen: " + joker);
-        } else {
-            System.out.println("Joker niet beschikbaar: " + joker);
+    public void chooseJoker(int index) {
+        if (index >= 0 && index < availableJokers.size()) {
+            chosenJoker = availableJokers.get(index);
         }
     }
 
     public Joker getGekozenJoker() {
-        return gekozenJoker;
+        return chosenJoker;
     }
 
-    public boolean jokerBeschikbaar(Joker joker) {
-        return beschikbareJokers.contains(joker);
-    }
-
-    // Gebruik een joker (verwijder uit beschikbare jokers en reset gekozen)
     public void gebruikJoker(Joker joker) {
-        beschikbareJokers.remove(joker);
-        if (gekozenJoker == joker) {
-            gekozenJoker = null;
+        if (joker.getType() == Joker.JokerType.KEY_JOKER) {
+            availableJokers.removeIf(j -> j.getType() == Joker.JokerType.KEY_JOKER);
         }
-    }
-
-    public Set<Joker> getBeschikbareJokers() {
-        return beschikbareJokers;
+        chosenJoker = null;
     }
 }
