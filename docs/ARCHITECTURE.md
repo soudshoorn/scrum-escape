@@ -5,6 +5,7 @@
 2. [Design Patterns](#design-patterns)
 3. [SOLID Principes](#solid-principes)
 4. [Code Structuur](#code-structuur)
+5. [Code Kwaliteit](#code-kwaliteit)
 
 ## Project Overzicht
 
@@ -21,7 +22,7 @@ Scrum Escape is een educatief spel dat spelers leert over Scrum en Agile princip
 ## Design Patterns
 
 ### 1. Strategy Pattern
-Het Strategy Pattern wordt gebruikt voor het afhandelen van verschillende soorten vragen. Dit is als een menu in een restaurant waar je verschillende gerechten kunt kiezen, elk met hun eigen bereidingswijze.
+Het Strategy Pattern wordt gebruikt voor het afhandelen van verschillende soorten vragen en jokers. Dit is als een menu in een restaurant waar je verschillende gerechten kunt kiezen, elk met hun eigen bereidingswijze.
 
 **Implementatie:**
 ```java
@@ -32,17 +33,9 @@ public interface QuestionStrategy {
     boolean checkAnswer(int selectedOption);
 }
 
-// Concrete implementatie voor meerkeuzevragen
-public class MultipleChoiceStrategy implements QuestionStrategy {
-    private final String question;
-    private final String[] options;
-    private final int correctOption;
-
-    // Implementatie van de interface methodes
-    @Override
-    public boolean checkAnswer(int selectedOption) {
-        return selectedOption == correctOption;
-    }
+// Interface voor joker strategieën
+public interface JokerStrategy {
+    void gebruik(BaseRoom room);
 }
 ```
 
@@ -50,6 +43,7 @@ public class MultipleChoiceStrategy implements QuestionStrategy {
 - Makkelijk nieuwe vraagtypes toevoegen (bijvoorbeeld open vragen of puzzels)
 - Flexibele antwoordverwerking
 - Gescheiden verantwoordelijkheden
+- Uitbreidbaar joker systeem
 
 ### 2. Observer Pattern
 Het Observer Pattern wordt gebruikt voor het monitoren van deur status en monster activiteit. Dit werkt als een deurbel systeem: als iemand op de bel drukt, krijgen alle aangesloten ontvangers een seintje.
@@ -61,15 +55,9 @@ public interface DoorObserver {
     void onDoorOpened(String doorId);
 }
 
-// Implementatie in GameScreen
-public class GameScreen implements DoorObserver {
-    @Override
-    public void onDoorOpened(String doorId) {
-        // Toon de juiste vraag of activeer het monster
-        if (doorId.equals("door1")) {
-            showQuestion("sprint1");
-        }
-    }
+// Interface voor algemene observers
+public interface Observer {
+    void onIncorrectAnswer();
 }
 ```
 
@@ -77,6 +65,7 @@ public class GameScreen implements DoorObserver {
 - Losse koppeling tussen componenten
 - Efficiënte status updates
 - Makkelijk nieuwe observers toevoegen
+- Flexibele monster activatie
 
 ### 3. Singleton Pattern
 Het Singleton Pattern wordt gebruikt voor het beheren van gedeelde resources en game state. Dit is als een scorebord in een voetbalwedstrijd: er is er maar één, en iedereen kijkt ernaar.
@@ -85,14 +74,11 @@ Het Singleton Pattern wordt gebruikt voor het beheren van gedeelde resources en 
 ```java
 public class GameState {
     private static GameState instance;
-    private int score;
     
-    // Private constructor
     private GameState() {
-        score = 0;
+        // Initialisatie
     }
     
-    // Publieke methode om de enige instantie te krijgen
     public static GameState getInstance() {
         if (instance == null) {
             instance = new GameState();
@@ -106,32 +92,32 @@ public class GameState {
 - Centrale toegang tot gedeelde resources
 - Consistente spelstatus
 - Efficiënt geheugengebruik
+- Gedeelde configuratie
 
 ### 4. Template Method Pattern
-Het Template Method Pattern wordt gebruikt in de scherm klassen. Dit is als een receptenboek: elk recept volgt dezelfde structuur, maar de inhoud is anders.
+Het Template Method Pattern wordt gebruikt in de kamer en joker klassen. Dit is als een receptenboek: elk recept volgt dezelfde structuur, maar de inhoud is anders.
 
 **Implementatie:**
 ```java
-// Basis interface voor alle schermen
-public interface Screen {
-    void render();    // Tekent het scherm
-    void update();    // Update de logica
-    void dispose();   // Ruimt op
+public abstract class BaseRoom {
+    public void applyHintJoker() {
+        applyHintJokerEffect();
+    }
+
+    protected abstract void applyHintJokerEffect();
 }
 
-// Concrete implementatie
-public class GameScreen implements Screen {
+public abstract class Joker implements JokerStrategy {
     @Override
-    public void render() {
-        // Tekent het speelscherm
-    }
-    
-    @Override
-    public void update() {
-        // Update de speler, deuren, etc.
-    }
+    public abstract void gebruik(BaseRoom room);
 }
 ```
+
+**Voordelen:**
+- Consistente structuur voor kamers
+- Flexibele joker implementaties
+- Herbruikbare code
+- Duidelijke interface
 
 ## SOLID Principes
 
@@ -140,26 +126,63 @@ Elke klasse heeft één specifieke verantwoordelijkheid:
 - `GameState`: Beheert alleen de spelstatus
 - `AssetManager`: Beheert alleen de assets
 - `QuestionManager`: Beheert alleen de vragen
+- `Player`: Beheert alleen speler beweging en status
+- `Door`: Beheert alleen deur status en interactie
 
 ### 2. Open/Closed Principle (OCP)
 Het systeem is open voor uitbreiding maar gesloten voor modificatie:
 - Nieuwe vraagtypes kunnen worden toegevoegd zonder bestaande code aan te passen
 - Nieuwe schermen kunnen worden toegevoegd zonder bestaande schermen te wijzigen
+- Nieuwe jokers kunnen worden toegevoegd zonder bestaande code te wijzigen
+- Nieuwe kamers kunnen worden toegevoegd via BaseRoom
 
 ### 3. Liskov Substitution Principle (LSP)
 Subtypes kunnen worden gebruikt in plaats van hun parent types:
 - Alle vraag strategieën kunnen worden gebruikt waar een `QuestionStrategy` wordt verwacht
 - Alle schermen kunnen worden gebruikt waar een `Screen` wordt verwacht
+- Alle jokers kunnen worden gebruikt waar een `JokerStrategy` wordt verwacht
+- Alle kamers kunnen worden gebruikt waar een `BaseRoom` wordt verwacht
 
 ### 4. Interface Segregation Principle (ISP)
 Interfaces zijn specifiek voor client behoeften:
 - `DoorObserver` bevat alleen methodes voor deur updates
 - `QuestionStrategy` bevat alleen methodes voor vraag verwerking
+- `JokerStrategy` bevat alleen methodes voor joker gebruik
+- `Readable` bevat alleen methodes voor leesbare objecten
 
 ### 5. Dependency Inversion Principle (DIP)
 Hoge-niveau modules zijn niet afhankelijk van lage-niveau modules:
 - `GameScreen` gebruikt interfaces in plaats van concrete implementaties
 - `QuestionManager` werkt met `QuestionStrategy` interface
+- `BaseRoom` werkt met `JokerStrategy` interface
+- `Door` werkt met `DoorObserver` interface
+
+## Code Kwaliteit
+
+### 1. Large Class
+De `GameScreen` klasse is relatief groot en zou opgesplitst kunnen worden in kleinere, meer specifieke klassen:
+- UI rendering logica
+- Input verwerking
+- Vraag weergave
+- Monster beheer
+
+### 2. Duplicate Code
+Er is minimale code duplicatie door gebruik van:
+- Template Method Pattern voor kamers en jokers
+- Strategy Pattern voor vragen
+- Observer Pattern voor events
+- Interface implementaties
+
+### 3. Long Method & Shotgun Surgery
+- Methoden zijn over het algemeen kort en specifiek
+- Veranderingen zijn gelokaliseerd door gebruik van patterns
+- UI rendering logica zou verder opgesplitst kunnen worden
+
+### 4. Mocking, Stubs & Randwaarden
+- GameState gebruikt constanten voor configuratie
+- Vragen en antwoorden zijn goed gestructureerd
+- Monster gedrag is configureerbaar
+- TIA objecten hebben vaste berichten
 
 ## Code Structuur
 
@@ -181,16 +204,17 @@ nl.webser.scrum_escape/
 │   ├── QuestionStrategy.java (Vraag interface)
 │   ├── MultipleChoiceStrategy.java (Meerkeuzevragen)
 │   └── QuestionManager.java (Vraag beheer)
+├── jokers/
+│   ├── JokerStrategy.java (Joker interface)
+│   ├── Joker.java (Basis joker klasse)
+│   └── KeyJoker.java (Specifieke joker)
+├── rooms/
+│   ├── BaseRoom.java (Basis kamer klasse)
+│   └── GameRoom.java (Spelkamer implementatie)
 └── observer/
     ├── Observer.java (Observer interface)
     └── DoorObserver.java (Deur observer)
 ```
-
-### Belangrijke Interfaces
-1. `Screen`: Basis voor alle schermen
-2. `QuestionStrategy`: Basis voor alle vraag types
-3. `Observer`: Basis voor alle observers
-4. `DoorObserver`: Specifiek voor deur observers
 
 ## Conclusie
 
@@ -200,4 +224,10 @@ Scrum Escape is gebouwd met moderne programmeertechnieken die het spel:
 - Uitbreidbaar maken (makkelijk nieuwe features toe te voegen)
 - Betrouwbaar maken (minder kans op bugs)
 
-De gebruikte design patterns en SOLID principes zorgen ervoor dat de code goed georganiseerd is en makkelijk te begrijpen is voor andere programmeurs. Dit maakt het makkelijk om het spel verder te ontwikkelen of aan te passen. 
+De gebruikte design patterns en SOLID principes zorgen ervoor dat de code goed georganiseerd is en makkelijk te begrijpen is voor andere programmeurs. Dit maakt het makkelijk om het spel verder te ontwikkelen of aan te passen.
+
+### Verbeterpunten
+1. GameScreen klasse opsplitsen in kleinere componenten
+2. UI rendering logica verder modulariseren
+3. Meer unit tests toevoegen
+4. Documentatie uitbreiden met meer voorbeelden 
