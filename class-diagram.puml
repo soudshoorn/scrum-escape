@@ -1,255 +1,118 @@
-@startuml ScrumEscape Class Diagram
+@startuml ScrumEscapeGame
 
-' Main Game Classes
+' Hoofdklassen
 class ScrumEscapeGame {
-    - AssetManager assetManager
-    - SpriteBatch batch
-    - Screen currentScreen
     + create()
-    + render()
-    + dispose()
+    + showGameOver()
+    + showSuccess()
 }
 
-class GameScreen {
-    - OrthographicCamera camera
-    - Viewport viewport
-    - SpriteBatch batch
+class GameScreen implements Screen, DoorObserver {
     - Player player
-    - List<Monster> monsters
-    - List<Obstacle> obstacles
+    - Monster monster
     - List<Door> doors
-    - List<Question> questions
-    - TypewriterEffect typewriterEffect
-    + render()
-    + update()
-    + handleInput()
-    + onDoorOpened()
-}
-
-class EndScreen {
-    - SpriteBatch batch
-    - BitmapFont font
-    - int score
-    - TypewriterEffect typewriterEffect
+    - QuestionManager questionManager
+    - GameState gameState
     + render()
     + show()
-    + hide()
+    + onDoorOpened(doorId)
 }
 
-' Entity Classes
 class Player {
-    - Vector2 position
-    - Vector2 velocity
-    - TextureRegion currentFrame
-    - float stateTime
+    - float x
+    - float y
     - Rectangle bounds
     + update()
     + render()
-    + move()
-    + checkCollision()
+    + setPosition(x, y)
 }
 
-class Monster {
-    - Vector2 position
-    - Vector2 velocity
-    - TextureRegion texture
-    - Rectangle bounds
+class Monster implements Observer {
     - boolean active
-    + update()
-    + render()
-    + move()
-    + checkCollision()
+    + activate(player)
+    + update(delta, player)
+    + render(batch)
     + onIncorrectAnswer()
-}
-
-class Obstacle {
-    - Vector2 position
-    - Rectangle bounds
-    - TextureRegion texture
-    + render()
-    + checkCollision()
-}
-
-class Door {
-    - Vector2 position
-    - Rectangle bounds
-    - TextureRegion texture
-    - boolean isLocked
-    - Question question
-    - DoorObserver observer
-    + render()
-    + checkCollision()
-    + unlock()
-    + open()
-    + setObserver()
-}
-
-class Question {
-    - String questionText
-    - List<String> answers
-    - int correctAnswerIndex
-    + checkAnswer()
-    + getQuestionText()
-    + getAnswers()
-}
-
-' Utility Classes
-class AssetManager {
-    - Map<String, Texture> textures
-    - Map<String, Sound> sounds
-    - Map<String, Music> music
-    + loadAssets()
-    + getTexture()
-    + getSound()
-    + getMusic()
-    + dispose()
-}
-
-class TypewriterEffect {
-    - String fullText
-    - String currentText
-    - float delay
-    - float timer
-    + update()
-    + getCurrentText()
-    + isComplete()
     + reset()
 }
 
-' Design Pattern Interfaces
-interface Observer {
-    + onIncorrectAnswer()
-}
-
-interface DoorObserver {
-    + onDoorOpened()
-}
-
-interface QuestionStrategy {
-    + getQuestion()
-    + getOptions()
-    + isCorrectAnswer()
-    + getQuestionId()
-    + onCorrectAnswer()
-    + onWrongAnswer()
-    + checkAnswer()
-}
-
-' Design Pattern Implementations
-class MultipleChoiceStrategy {
-    - String questionId
-    - String question
-    - String[] options
-    - int correctOption
+class Door {
     - String doorId
-    + getQuestion()
-    + getOptions()
-    + isCorrectAnswer()
-    + getQuestionId()
-    + onCorrectAnswer()
-    + onWrongAnswer()
+    - boolean isOpen
+    - DoorObserver observer
+    + open()
+    + setObserver(observer)
+    + isOpen()
+    + getDoorId()
 }
 
 class QuestionManager {
     - Map<String, QuestionStrategy> questions
     + getInstance()
+    + getQuestion(id)
+    + getFinalQuestion(index)
+}
+
+interface QuestionStrategy {
     + getQuestion()
-    + getFinalQuestion()
+    + getOptions()
+    + checkAnswer(selectedOption)
+    + getQuestionId()
 }
 
 class GameState {
     - int score
     - Set<String> answeredQuestions
     - Set<String> openedDoors
-    - Set<Integer> foundTIAObjects
-    - Set<String> failedQuestions
-    - Map<String, Integer> failedAttempts
     + getInstance()
-    + addScore()
-    + markQuestionAnswered()
-    + markDoorOpened()
-    + isDoorOpened()
-    + getFailedAttempts()
+    + addScore(points)
+    + markQuestionAnswered(questionId)
+    + markDoorOpened(doorId)
+    + isDoorOpened(doorId)
+    + reset()
 }
 
-' Relationships
-ScrumEscapeGame "1" *-- "1" AssetManager
-ScrumEscapeGame "1" *-- "*" Screen
-GameScreen "1" *-- "1" Player
-GameScreen "1" *-- "*" Monster
-GameScreen "1" *-- "*" Obstacle
-GameScreen "1" *-- "*" Door
-GameScreen "1" *-- "*" Question
-GameScreen "1" *-- "1" TypewriterEffect
-EndScreen "1" *-- "1" TypewriterEffect
-Door "1" *-- "1" Question
+interface Observer {
+    + onIncorrectAnswer()
+}
 
-' Design Pattern Relationships
-Observer <|.. Monster
-DoorObserver <|.. GameScreen
-QuestionStrategy <|.. MultipleChoiceStrategy
-QuestionManager "1" *-- "*" QuestionStrategy
-GameState "1" *-- "*" Question
-GameState "1" *-- "*" Door
+interface DoorObserver {
+    + onDoorOpened(doorId)
+}
 
-' Inheritance
-Game <|-- ScrumEscapeGame
-Screen <|-- GameScreen
-Screen <|-- EndScreen
+' Belangrijkste relaties
+ScrumEscapeGame o-- GameScreen
+GameScreen o-- Player
+GameScreen o-- Monster
+GameScreen o-- Door
+GameScreen o-- QuestionManager
+GameScreen o-- GameState
+Monster ..|> Observer
+GameScreen ..|> DoorObserver
+Door o-- DoorObserver
+QuestionManager o-- QuestionStrategy
 
-' Notes
+' Notes voor context
 note right of ScrumEscapeGame
-  Hoofdklasse van het spel die
-  schermen en assets beheert
+  Hoofdklasse, startpunt van het spel
 end note
-
 note right of GameScreen
-  Beheert de hoofdspellogica,
-  rendering en input verwerking
+  Beheert spelverloop, input en rendering
 end note
-
 note right of Player
-  Speler karakter met
-  beweging en animatie
+  Speler die beweegt en vragen beantwoordt
 end note
-
-note right of TypewriterEffect
-  Beheert de typewriter animatie
-  voor dialogen en tekst
+note right of Monster
+  Monster verschijnt bij fout antwoord
 end note
-
 note right of Door
-  Deur met bijbehorende vraag
-  die ontgrendeld moet worden
+  Deuren blokkeren voortgang tot vraag is beantwoord
 end note
-
-note right of Question
-  Vraag met meerdere antwoorden
-  waarvan er één correct is
+note right of QuestionManager
+  Beheert alle vragen en finale vragen
 end note
-
-note right of Observer
-  Observer Pattern:
-  Monsters reageren op
-  foute antwoorden
-end note
-
-note right of DoorObserver
-  Observer Pattern:
-  GameScreen reageert op
-  geopende deuren
-end note
-
-note right of QuestionStrategy
-  Strategy Pattern:
-  Verschillende soorten
-  vragen implementeren
-end note
-
 note right of GameState
-  Singleton Pattern:
-  Centrale spelstatus
-  beheer
+  Singleton: centrale spelstatus
 end note
 
 @enduml 
