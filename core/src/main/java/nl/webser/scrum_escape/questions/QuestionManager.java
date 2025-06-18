@@ -82,23 +82,48 @@ public class QuestionManager {
     private void initializeQuestions() {
         // Sprint 1 vragen
         addQuestion("sprint1", "Wat is het belangrijkste doel van een Sprint Review?", 
-            new String[]{"Harder werken", "Betere inschattingen maken", "Meer teamleden aannemen", "Deadlines verhogen"}, 1, "door1");
+            new String[]{
+                "Het product increment inspecteren en feedback verzamelen",
+                "De volgende sprint plannen",
+                "De Definition of Done aanpassen",
+                "De velocity van het team verhogen"
+            }, 0, "door1");
 
         // Sprint 2 vragen
-        addQuestion("sprint2", "Wat is het doel van een Daily Scrum?", 
-            new String[]{"Harder werken", "Betere inschattingen maken", "Meer teamleden aannemen", "Deadlines verhogen"}, 1, "door2");
+        addQuestion("sprint2", "Wie is verantwoordelijk voor het maximaliseren van de waarde van het product?", 
+            new String[]{
+                "De Scrum Master",
+                "De Stakeholders",
+                "De Product Owner",
+                "Het hele Scrum Team"
+            }, 2, "door2");
 
         // Sprint 3 vragen
-        addQuestion("sprint3", "Wat is het belangrijkste doel van een Sprint Planning?", 
-            new String[]{"Harder werken", "Betere inschattingen maken", "Meer teamleden aannemen", "Deadlines verhogen"}, 1, "door3");
+        addQuestion("sprint3", "Wat is het doel van de Daily Scrum?", 
+            new String[]{
+                "De product backlog prioriteren",
+                "De voortgang bespreken en het plan voor de komende 24 uur aanpassen",
+                "De sprint backlog aanpassen",
+                "De stakeholders informeren"
+            }, 1, "door3");
 
         // Sprint 4 vragen
-        addQuestion("sprint4", "Wat is het doel van een Sprint Retrospective?", 
-            new String[]{"Harder werken", "Betere inschattingen maken", "Meer teamleden aannemen", "Deadlines verhogen"}, 1, "door4");
+        addQuestion("sprint4", "Wat is een kenmerk van een goed Scrum Team?", 
+            new String[]{
+                "Het team werkt altijd overuren",
+                "Het team volgt alleen instructies van de manager",
+                "Het team werkt zelfstandig en is multidisciplinair",
+                "Het team bestaat uit alleen ontwikkelaars"
+            }, 2, "door4");
 
         // Sprint 5 vragen
-        addQuestion("sprint5", "Het team heeft moeite met deadlines halen.\nWat is de beste les hieruit?", 
-            new String[]{"Harder werken", "Betere inschattingen maken", "Meer teamleden aannemen", "Deadlines verhogen"}, 1, "door5");
+        addQuestion("sprint5", "Wat gebeurt er als het werk niet af is aan het einde van de sprint?", 
+            new String[]{
+                "Het werk wordt automatisch als af beschouwd",
+                "Het team werkt door tot het af is",
+                "De sprint wordt verlengd",
+                "Het werk wordt teruggezet naar de product backlog"
+            }, 3, "door5");
     }
 
     /**

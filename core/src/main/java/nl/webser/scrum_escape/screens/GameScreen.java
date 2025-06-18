@@ -190,7 +190,7 @@ public class GameScreen implements Screen, DoorObserver {
         "Pas op voor het monster als je een vraag fout beantwoordt!\n\n" +
         "Kies nu je joker:\n" +
         "Druk op 1 voor een Hint Joker (altijd hints)\n" +
-        "Druk op 2 voor een Key Joker (extra sleutel in Daily Scrum/Review)");
+        "Druk op 2 voor een Key Joker (sleutel voor 1 kamer)");
         typewriterEffect.setTypingSpeed(0.015f); // Reset naar normale snelheid
 
         // Initialiseer lijsten voor deuren en TIA objecten
@@ -527,6 +527,7 @@ public class GameScreen implements Screen, DoorObserver {
 
         waitingForAnswer = false;
         boolean isCorrect = currentQuestion.checkAnswer(selectedOption);
+        int failedAttempts = gameState.getFailedAttempts(currentQuestion.getQuestionId());
 
         if (isCorrect) {
             correctSound.play();
@@ -534,7 +535,10 @@ public class GameScreen implements Screen, DoorObserver {
             gameState.markQuestionAnswered(currentQuestion.getQuestionId());
             gameState.setMonsterActive(false);
             gameState.resetFailedQuestion(currentQuestion.getQuestionId());
-            
+            // Reset monster als deze actief was (dus na een fout antwoord)
+            if (monster.isActive()) {
+                monster.reset();
+            }
             if (showingFinalQuestion) {
                 finalQuestionIndex++;
                 if (finalQuestionIndex >= 3) {
@@ -559,6 +563,15 @@ public class GameScreen implements Screen, DoorObserver {
                 gameState.markDoorOpened(currentDoor.getDoorId());
             }
         } else {
+            // Check of dit de tweede fout is
+            if (failedAttempts >= 1) {
+                // Direct game over
+                wrongSound.play();
+                gameState.markQuestionFailed(currentQuestion.getQuestionId());
+                ((ScrumEscapeGame) Gdx.app.getApplicationListener()).showGameOver();
+                monster.reset();
+                return;
+            }
             handleWrongAnswer();
         }
 
@@ -574,8 +587,9 @@ public class GameScreen implements Screen, DoorObserver {
         showMessage("Fout! Het monster komt eraan!");
         showingWarning = true;
         warningTimer = WARNING_DURATION;
-        waitingForAnswer = true;
+        waitingForAnswer = false;
         canShowHint = true;
+        monster.activate(player);
     }
 
     public void showHint() {
