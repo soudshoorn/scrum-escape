@@ -516,6 +516,8 @@ public class GameScreen implements Screen, DoorObserver {
         waitingForAnswer = true;
         gameState.setActiveQuestion(door.getQuestionId());
         typewriterEffect.start(currentQuestion.getQuestion());
+        // Wis hint bij nieuwe vraag
+        clearHint();
         // Monster niet resetten bij nieuwe vraag
     }
     /**
@@ -578,6 +580,8 @@ public class GameScreen implements Screen, DoorObserver {
         showingQuestion = false;
         currentQuestion = null;
         gameState.clearActiveQuestion();
+        // Wis hint na het beantwoorden van een vraag
+        clearHint();
     }
 
     private void handleWrongAnswer() {
@@ -593,11 +597,22 @@ public class GameScreen implements Screen, DoorObserver {
     }
 
     public void showHint() {
+        if (currentQuestion == null) {
+            currentHint = "Geen vraag actief";
+            return;
+        }
+        
         HintProvider hintProvider = HintFactory.createHintProvider();
-        currentHint = hintProvider.getHint();
+        currentHint = hintProvider.getHintForQuestion(currentQuestion.getQuestionId(), currentQuestion.getQuestion());
         System.out.println("Hint: " + currentHint);
     }
 
+    /**
+     * Verwijdert de huidige hint (wordt aangeroepen bij nieuwe vragen of na gebruik)
+     */
+    public void clearHint() {
+        currentHint = null;
+    }
 
     public void addEducationalAid(String aid) {
         System.out.println("Educatief hulpmiddel: " + aid);
@@ -612,6 +627,7 @@ public class GameScreen implements Screen, DoorObserver {
         monster.reset();
         showingQuestion = false;
         waitingForAnswer = false;
+        clearHint();
         showMessage("Je hebt de Key Joker gebruikt! De deur is nu open zonder straf.");
     }
 
